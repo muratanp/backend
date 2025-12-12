@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.env
+*.env.local
+*.env.*.local
+
+# Virtual environment
+venv/
+.env/
+
+# IDEs
+.vscode/
+.idea/
+
+# Cache
+.cache/
+.cache_joblib/
+.cache/
+
+# Logs
+*.log
+
+# macOS
+.DS_Store
+
+# Node / frontend if you add later
+node_modules/
+.next/
+out/
