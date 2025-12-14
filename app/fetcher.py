@@ -5,8 +5,8 @@ import asyncio
 import ipaddress
 import logging
 from joblib import Memory
-from .db import nodes_current, upsert_registry, mark_node_status
-from .config import CACHE_TTL
+from .db import nodes_current, upsert_registry, mark_node_status, save_snapshot_history
+from .config import CACHE_TTL, IP_NODES  # FIXED: Import from config
 
 # -------------------------------
 # Logging setup
@@ -19,20 +19,7 @@ if not logger.handlers:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-# -------------------------------
-# IP NODES (configurable later)
-# -------------------------------
-IP_NODES = [
-    "173.212.203.145",
-    "173.212.220.65",
-    "161.97.97.41",
-    "192.190.136.36",
-    "192.190.136.37",
-    "192.190.136.38",
-    "192.190.136.28",
-    "192.190.136.29",
-    "207.244.255.1"
-]
+# REMOVED: Hardcoded IP_NODES (now imported from config)
 
 memory = Memory(location=".cache", verbose=0)
 
@@ -115,11 +102,13 @@ def cached_call(ip: str, method: str, timestamp: int):
 def fetch_all_nodes_background():
     """
     Starts a background worker that:
-    - Fetches get-version, get-stats and get-pods-with-stats (if supported)
+    - Fetches get-version, get-stats and get-pods-with-stats
     - Builds snapshot saved to nodes_current (pnodes_snapshot)
-    - Updates persistent registry (pnodes_registry) and status (pnodes_status)
+    - Updates persistent registry (pnodes_registry) using ADDRESS as primary key
+    - Updates status (pnodes_status) using ADDRESS as primary key
+    - Saves historical snapshots
 
-    This function starts the worker (creates asyncio task or background thread) and returns immediately.
+    This function starts the worker and returns immediately.
     """
     async def worker():
         while True:
@@ -187,7 +176,6 @@ def fetch_all_nodes_background():
                             "version": p.get("version"),
                             "last_seen": p.get("last_seen"),
                             "last_seen_timestamp": p.get("last_seen_timestamp"),
-                            # do not copy total_count into per-pod; keep network total at node level
                             "source_ip": ip
                         }
                         for p in pods_list
@@ -202,10 +190,10 @@ def fetch_all_nodes_background():
             # fetch all nodes concurrently
             await asyncio.gather(*(fetch_node(ip) for ip in IP_NODES))
 
-            # Build merged_pnodes_unique with peer_sources
+            # Build merged_pnodes_unique with peer_sources (DEDUP BY ADDRESS)
             unique = {}
             for p in merged_pods:
-                key = p.get("address")
+                key = p.get("address")  # PRIMARY KEY: address
                 if not key:
                     continue
 
@@ -230,8 +218,12 @@ def fetch_all_nodes_background():
 
             merged_unique = list(unique.values())
 
-            # Update registry for each unique pod (use aggregated peer_sources)
+            # FIXED: Update registry for each unique pod using ADDRESS as primary key
             for pod in merged_unique:
+                address = pod.get("address")  # PRIMARY KEY
+                if not address:
+                    continue
+                
                 pubkey = pod.get("pubkey") or pod.get("address")
                 last_seen_ts = pod.get("last_seen_timestamp") or int(time.time())
                 peer_sources = pod.get("peer_sources", []) or []
@@ -239,12 +231,12 @@ def fetch_all_nodes_background():
                 rpc_port = pod.get("rpc_port") or 6000
 
                 registry_entry = {
-                    "address": pod.get("address"),
+                    "address": address,  # PRIMARY KEY
                     "pubkey": pubkey,
                     "last_seen": last_seen_ts,
                     "last_ip": peer_sources[0] if peer_sources else None,
                     "rpc_port": rpc_port,
-                    "is_public_rpc": bool(is_public_flag) if is_public_flag is not None else False,
+                    "is_public": bool(is_public_flag) if is_public_flag is not None else False,  # FIXED: Match RPC field name
                     "storage_committed": pod.get("storage_committed"),
                     "storage_used": pod.get("storage_used"),
                     "storage_usage_percent": pod.get("storage_usage_percent"),
@@ -255,13 +247,13 @@ def fetch_all_nodes_background():
                 }
 
                 try:
-                    upsert_registry(pubkey, registry_entry)
-                    if registry_entry["is_public_rpc"]:
-                        mark_node_status(pubkey, "public", {"last_ip": registry_entry["last_ip"], "last_seen": last_seen_ts})
+                    upsert_registry(address, registry_entry)  # FIXED: Use address
+                    if registry_entry["is_public"]:
+                        mark_node_status(address, "public", {"last_ip": registry_entry["last_ip"], "last_seen": last_seen_ts})
                     else:
-                        mark_node_status(pubkey, "private", {"last_ip": registry_entry["last_ip"], "last_seen": last_seen_ts})
+                        mark_node_status(address, "private", {"last_ip": registry_entry["last_ip"], "last_seen": last_seen_ts})
                 except Exception as e:
-                    logger.error(f"Registry write error for {pubkey}: {e}")
+                    logger.error(f"Registry write error for {address}: {e}")
 
             # Snapshot summary and storage
             total_nodes = len(IP_NODES)
@@ -276,22 +268,26 @@ def fetch_all_nodes_background():
             snapshot = {
                 "summary": {
                     "total_nodes": total_nodes,
-                    "total_pnodes": total_pnodes,        # network-reported total (preferred) or fallback
-                    "total_pnodes_raw": total_pnodes_raw, # raw concatenated pods count
+                    "total_pnodes": total_pnodes,
+                    "total_pnodes_raw": total_pnodes_raw,
                     "total_bytes_processed": total_bytes_processed,
                     "avg_cpu_percent": round(avg_cpu_percent, 2),
                     "avg_ram_used_percent": round(avg_ram_used_percent, 2),
                     "total_active_streams": total_active_streams,
                     "last_updated": last_updated
                 },
-                "nodes": results,                       # per-node (includes pods_raw and pods)
-                "merged_pnodes_raw": merged_pods,       # all pods, duplicates allowed
-                "merged_pnodes_unique": merged_unique   # deduped pods with peer_sources
+                "nodes": results,
+                "merged_pnodes_raw": merged_pods,
+                "merged_pnodes_unique": merged_unique
             }
 
             try:
                 nodes_current.replace_one({"_id": "snapshot"}, {"_id": "snapshot", "data": snapshot}, upsert=True)
-                logger.info("Snapshot updated successfully")
+                logger.info("✅ Snapshot updated successfully")
+                
+                # ADDED: Save snapshot history
+                save_snapshot_history()
+                
             except Exception as e:
                 logger.error(f"MongoDB write error: {e}")
 
