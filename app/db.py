@@ -46,6 +46,14 @@ def setup_indexes():
         pnodes_registry.create_index([("last_seen", -1)])
         logger.info("✅ Created index on pnodes_registry.last_seen")
         
+        # ✨ NEW: Index on consistency_score for gossip queries
+        pnodes_registry.create_index([("consistency_score", -1)])
+        logger.info("✅ Created index on pnodes_registry.consistency_score")
+        
+        # ✨ NEW: Index on last_gossip_drop for flapping detection
+        pnodes_registry.create_index([("last_gossip_drop", -1)])
+        logger.info("✅ Created index on pnodes_registry.last_gossip_drop")
+        
         # Status: PRIMARY KEY is address (unique)
         pnodes_status.create_index([("address", 1)], unique=True)
         logger.info("✅ Created unique index on pnodes_status.address")
@@ -420,3 +428,204 @@ def get_node_history(address: str, days: int = 30):
         "message": "Per-node historical tracking not yet implemented",
         "note": "Currently only network-wide snapshots are tracked. Per-node history is planned for Phase 5."
     }
+
+# -----------------------------
+# Gossip Consistency Tracking
+# -----------------------------
+
+def track_gossip_changes(current_pnodes: list) -> dict:
+    """
+    Track gossip consistency by comparing current snapshot to previous.
+    Persists appearance/disappearance data to MongoDB.
+    
+    Args:
+        current_pnodes: List of pNodes in current snapshot
+        
+    Returns:
+        dict: Summary of changes (new_appearances, disappearances, etc.)
+    """
+    import time
+    
+    # Get current addresses from snapshot
+    current_addresses = set()
+    for pnode in current_pnodes:
+        addr = pnode.get("address")
+        if addr:
+            current_addresses.add(addr)
+    
+    # Get previous snapshot to compare
+    previous_snapshot = nodes_current.find_one({"_id": "snapshot"})
+    
+    # If no previous snapshot, just initialize all nodes
+    if not previous_snapshot or "data" not in previous_snapshot:
+        logger.info("No previous snapshot - initializing gossip tracking")
+        
+        # Initialize all current nodes
+        now = int(time.time())
+        for addr in current_addresses:
+            try:
+                pnodes_registry.update_one(
+                    {"address": addr},
+                    {
+                        "$setOnInsert": {
+                            "gossip_appearances": 1,
+                            "gossip_disappearances": 0,
+                            "last_gossip_appearance": now,
+                            "last_gossip_drop": None,
+                            "consistency_score": 1.0
+                        }
+                    },
+                    upsert=True
+                )
+            except Exception as e:
+                logger.error(f"Failed to initialize gossip tracking for {addr}: {e}")
+        
+        return {
+            "new_appearances": len(current_addresses),
+            "disappearances": 0,
+            "total_current": len(current_addresses),
+            "timestamp": now
+        }
+    
+    # Get previous addresses
+    previous_data = previous_snapshot.get("data", {})
+    previous_pnodes = previous_data.get("merged_pnodes_unique", [])
+    previous_addresses = set()
+    for pnode in previous_pnodes:
+        addr = pnode.get("address")
+        if addr:
+            previous_addresses.add(addr)
+    
+    # Detect changes
+    new_appearances = current_addresses - previous_addresses
+    disappearances = previous_addresses - current_addresses
+    
+    now = int(time.time())
+    
+    # Update registry for new appearances
+    for address in new_appearances:
+        try:
+            # Get current stats
+            registry_entry = pnodes_registry.find_one({"address": address})
+            
+            if registry_entry:
+                # Node reappeared - increment counter
+                current_appearances = registry_entry.get("gossip_appearances", 0)
+                current_disappearances = registry_entry.get("gossip_disappearances", 0)
+                
+                new_appearance_count = current_appearances + 1
+                
+                # Recalculate consistency score
+                if new_appearance_count + current_disappearances > 0:
+                    consistency_score = new_appearance_count / (new_appearance_count + current_disappearances)
+                else:
+                    consistency_score = 1.0
+                
+                pnodes_registry.update_one(
+                    {"address": address},
+                    {
+                        "$inc": {"gossip_appearances": 1},
+                        "$set": {
+                            "last_gossip_appearance": now,
+                            "consistency_score": consistency_score
+                        }
+                    }
+                )
+                
+                logger.info(f"✅ Node {address} reappeared in gossip (consistency: {consistency_score:.2%})")
+            else:
+                # First time seeing this node
+                pnodes_registry.update_one(
+                    {"address": address},
+                    {
+                        "$set": {
+                            "gossip_appearances": 1,
+                            "gossip_disappearances": 0,
+                            "last_gossip_appearance": now,
+                            "last_gossip_drop": None,
+                            "consistency_score": 1.0
+                        }
+                    },
+                    upsert=True
+                )
+                logger.info(f"🆕 New node {address} appeared in gossip")
+                
+        except Exception as e:
+            logger.error(f"Failed to track appearance for {address}: {e}")
+    
+    # Update registry for disappearances
+    for address in disappearances:
+        try:
+            registry_entry = pnodes_registry.find_one({"address": address})
+            
+            if registry_entry:
+                # Increment disappearance counter
+                current_appearances = registry_entry.get("gossip_appearances", 0)
+                current_disappearances = registry_entry.get("gossip_disappearances", 0)
+                
+                new_disappearance_count = current_disappearances + 1
+                
+                # Recalculate consistency score
+                if current_appearances + new_disappearance_count > 0:
+                    consistency_score = current_appearances / (current_appearances + new_disappearance_count)
+                else:
+                    consistency_score = 0.0
+                
+                pnodes_registry.update_one(
+                    {"address": address},
+                    {
+                        "$inc": {"gossip_disappearances": 1},
+                        "$set": {
+                            "last_gossip_drop": now,
+                            "consistency_score": consistency_score
+                        }
+                    }
+                )
+                
+                # Log warning if flapping (consistency < 80%)
+                if consistency_score < 0.8:
+                    logger.warning(
+                        f"⚠️  Node {address} is flapping "
+                        f"(consistency: {consistency_score:.1%}, "
+                        f"appearances: {current_appearances}, "
+                        f"drops: {new_disappearance_count})"
+                    )
+                else:
+                    logger.info(f"📉 Node {address} dropped from gossip (consistency: {consistency_score:.2%})")
+            else:
+                # Node disappeared but we never tracked it
+                # This shouldn't happen, but handle gracefully
+                pnodes_registry.update_one(
+                    {"address": address},
+                    {
+                        "$set": {
+                            "gossip_appearances": 0,
+                            "gossip_disappearances": 1,
+                            "last_gossip_drop": now,
+                            "consistency_score": 0.0
+                        }
+                    },
+                    upsert=True
+                )
+                logger.warning(f"❓ Unknown node {address} disappeared")
+                
+        except Exception as e:
+            logger.error(f"Failed to track disappearance for {address}: {e}")
+    
+    # Return summary
+    summary = {
+        "new_appearances": len(new_appearances),
+        "disappearances": len(disappearances),
+        "total_current": len(current_addresses),
+        "timestamp": now
+    }
+    
+    if new_appearances or disappearances:
+        logger.info(
+            f"Gossip tracking: "
+            f"+{summary['new_appearances']} appeared, "
+            f"-{summary['disappearances']} dropped, "
+            f"{summary['total_current']} total"
+        )
+    
+    return summary

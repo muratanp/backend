@@ -5,7 +5,7 @@ import asyncio
 import ipaddress
 import logging
 from joblib import Memory
-from .db import nodes_current, upsert_registry, mark_node_status, save_snapshot_history
+from .db import nodes_current, upsert_registry, mark_node_status, save_snapshot_history, track_gossip_changes
 from .config import CACHE_TTL, IP_NODES  # FIXED: Import from config
 
 # -------------------------------
@@ -217,6 +217,7 @@ def fetch_all_nodes_background():
                         unique[key] = {**p, "peer_sources": peer_sources}
 
             merged_unique = list(unique.values())
+            
 
             # FIXED: Update registry for each unique pod using ADDRESS as primary key
             for pod in merged_unique:
@@ -281,11 +282,25 @@ def fetch_all_nodes_background():
                 "merged_pnodes_unique": merged_unique
             }
 
+            # ✨ NEW: Track gossip consistency BEFORE saving snapshot
+            # This compares current merged_unique to previous snapshot
+            try:
+                gossip_summary = track_gossip_changes(merged_unique)
+                logger.info(
+                    f"Gossip consistency tracked: "
+                    f"+{gossip_summary['new_appearances']} appeared, "
+                    f"-{gossip_summary['disappearances']} dropped"
+                )
+            except Exception as e:
+                logger.error(f"❌ Gossip tracking failed: {e}")
+                # Don't fail the entire snapshot if gossip tracking fails
+
+            # Save snapshot to MongoDB
             try:
                 nodes_current.replace_one({"_id": "snapshot"}, {"_id": "snapshot", "data": snapshot}, upsert=True)
                 logger.info("✅ Snapshot updated successfully")
                 
-                # ADDED: Save snapshot history
+                # Save snapshot history
                 save_snapshot_history()
                 
             except Exception as e:

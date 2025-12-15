@@ -8,7 +8,8 @@ from .db import (
     prune_old_nodes, sanitize_mongo, CACHE_TTL, pnodes_registry,
     setup_indexes, get_growth_metrics, get_node_history  # ADDED
 )
-import time
+from .alerts import check_node_alerts, get_alerts_summary, filter_alerts
+import time, logging
 
 
 app = FastAPI(
@@ -1223,3 +1224,665 @@ async def get_node_history_endpoint(address: str, days: int = Query(30, ge=1, le
         )
     
     return result
+
+logger = logging.getLogger(__name__)
+
+
+@app.get("/pnodes/{address:path}/alerts", summary="Get alerts for specific node")
+async def get_node_alerts(
+    address: str,
+    severity: str = Query(None, regex="^(critical|warning|info)$")
+):
+    """
+    Get all active alerts for a specific node.
+    
+    **NEW ENDPOINT** - Phase 5
+    
+    Identifies issues such as:
+    - Low uptime or frequent restarts
+    - Outdated software version
+    - Storage near capacity
+    - Poor network connectivity
+    - Gossip flapping (unreliable)
+    
+    Parameters:
+    - address: Node address (IP:port)
+    - severity: Filter by severity (critical, warning, info)
+    
+    Returns:
+        - alerts: Array of alert objects
+        - summary: Count by severity
+        - node_info: Basic node details
+    """
+    # Get node data
+    response = await get_pnodes_unified(status="all", limit=10000)
+    all_nodes = response.get("pnodes", [])
+    
+    # Find the specific node
+    node_data = None
+    for node in all_nodes:
+        if node.get("address") == address:
+            node_data = node
+            break
+    
+    if not node_data:
+        return JSONResponse(
+            {
+                "error": f"Node not found: {address}",
+                "suggestion": "Check /registry for valid addresses"
+            },
+            status_code=404
+        )
+    
+    # Get historical data (if available)
+    # For now, pass None - will be implemented when per-node history exists
+    historical_data = None
+    
+    # Check for alerts
+    try:
+        alerts = check_node_alerts(node_data, historical_data)
+        
+        # Filter by severity if requested
+        if severity:
+            alerts = filter_alerts(alerts, severity=severity)
+        
+        # Get summary
+        summary = get_alerts_summary(alerts)
+        
+        return {
+            "address": address,
+            "alerts": alerts,
+            "summary": summary,
+            "node_info": {
+                "is_online": node_data.get("is_online", False),
+                "uptime": node_data.get("uptime", 0),
+                "version": node_data.get("version", "unknown"),
+                "storage_usage_percent": node_data.get("storage_usage_percent", 0),
+                "peer_count": len(node_data.get("peer_sources", [])),
+                "last_seen": node_data.get("last_seen", 0)
+            },
+            "timestamp": int(time.time())
+        }
+    except Exception as e:
+        logger.error(f"Alert check failed for {address}: {e}")
+        return JSONResponse(
+            {
+                "error": "Alert check failed",
+                "details": str(e)
+            },
+            status_code=500
+        )
+
+
+@app.get("/alerts", summary="Get all network alerts")
+async def get_all_alerts(
+    severity: str = Query(None, regex="^(critical|warning|info)$"),
+    alert_type: str = Query(None),
+    limit: int = Query(100, ge=1, le=500)
+):
+    """
+    Get alerts for all nodes in the network.
+    
+    **NEW ENDPOINT** - Phase 5
+    
+    Useful for:
+    - Identifying problematic nodes at scale
+    - Monitoring network health
+    - Prioritizing operator actions
+    
+    Parameters:
+    - severity: Filter by severity level
+    - alert_type: Filter by alert type (offline, low_uptime, etc.)
+    - limit: Max nodes to check (default 100)
+    
+    Returns:
+        - alerts_by_node: Dict of address -> alerts array
+        - summary: Overall alert statistics
+        - critical_nodes: Nodes with critical alerts
+    """
+    # Get all nodes
+    response = await get_pnodes_unified(status="all", limit=limit)
+    all_nodes = response.get("pnodes", [])
+    
+    alerts_by_node = {}
+    all_alerts = []
+    critical_nodes = []
+    
+    for node in all_nodes:
+        address = node.get("address")
+        if not address:
+            continue
+        
+        try:
+            # Check alerts for this node
+            alerts = check_node_alerts(node)
+            
+            if alerts:
+                alerts_by_node[address] = alerts
+                all_alerts.extend(alerts)
+                
+                # Track critical nodes
+                has_critical = any(a.get("severity") == "critical" for a in alerts)
+                if has_critical:
+                    critical_nodes.append({
+                        "address": address,
+                        "alert_count": len(alerts),
+                        "critical_alerts": [a for a in alerts if a.get("severity") == "critical"]
+                    })
+        except Exception as e:
+            logger.error(f"Alert check failed for {address}: {e}")
+            continue
+    
+    # Filter alerts if requested
+    if severity or alert_type:
+        filtered_alerts = filter_alerts(all_alerts, severity=severity, alert_type=alert_type)
+        summary = get_alerts_summary(filtered_alerts)
+    else:
+        filtered_alerts = all_alerts
+        summary = get_alerts_summary(all_alerts)
+    
+    # Sort critical nodes by alert count
+    critical_nodes.sort(key=lambda x: x["alert_count"], reverse=True)
+    
+    return {
+        "summary": summary,
+        "critical_nodes": critical_nodes,
+        "nodes_checked": len(all_nodes),
+        "nodes_with_alerts": len(alerts_by_node),
+        "filters": {
+            "severity": severity,
+            "alert_type": alert_type
+        },
+        "timestamp": int(time.time())
+    }
+
+
+@app.get("/alerts/critical", summary="Get only critical alerts")
+async def get_critical_alerts_only():
+    """
+    Quick endpoint for monitoring critical issues.
+    
+    **NEW ENDPOINT** - Phase 5
+    
+    Returns only nodes with critical severity alerts.
+    Perfect for dashboards and alerting systems.
+    """
+    response = await get_all_alerts(severity="critical", limit=1000)
+    return response
+
+@app.get("/pnodes/compare", summary="Compare multiple nodes side-by-side")
+async def compare_nodes(
+    addresses: str = Query(..., description="Comma-separated addresses (2-5 nodes)")
+):
+    """
+    Compare multiple nodes side-by-side.
+    
+    **NEW ENDPOINT** - Phase 5
+    
+    Perfect for:
+    - Choosing between staking options
+    - Evaluating operator performance
+    - Identifying best performers
+    
+    Parameters:
+    - addresses: Comma-separated list of addresses (max 5)
+      Example: "192.168.1.1:9001,10.0.0.5:9001"
+    
+    Returns:
+        - comparison: Array of full node objects
+        - winners: Best node for each category
+        - recommendations: Which to choose and why
+    """
+    # Parse addresses
+    address_list = [a.strip() for a in addresses.split(",") if a.strip()]
+    
+    # Validate count
+    if len(address_list) < 2:
+        return JSONResponse(
+            {
+                "error": "Must provide at least 2 addresses to compare",
+                "example": "?addresses=addr1:9001,addr2:9001"
+            },
+            status_code=400
+        )
+    
+    if len(address_list) > 5:
+        return JSONResponse(
+            {
+                "error": "Maximum 5 nodes can be compared at once",
+                "provided": len(address_list)
+            },
+            status_code=400
+        )
+    
+    # Get all nodes
+    response = await get_pnodes_unified(status="all", limit=10000)
+    all_nodes = response.get("pnodes", [])
+    
+    # Build map for quick lookup
+    nodes_map = {node.get("address"): node for node in all_nodes if node.get("address")}
+    
+    # Find requested nodes
+    comparison_nodes = []
+    missing_addresses = []
+    
+    for addr in address_list:
+        if addr in nodes_map:
+            comparison_nodes.append(nodes_map[addr])
+        else:
+            missing_addresses.append(addr)
+    
+    if missing_addresses:
+        return JSONResponse(
+            {
+                "error": "Some addresses not found",
+                "missing": missing_addresses,
+                "suggestion": "Check /pnodes for valid addresses"
+            },
+            status_code=404
+        )
+    
+    # Calculate winners for each category
+    winners = {
+        "overall_score": None,
+        "trust_score": None,
+        "capacity_score": None,
+        "best_uptime": None,
+        "most_storage": None,
+        "best_connectivity": None
+    }
+    
+    # Track best values
+    best_overall = {"score": 0, "address": None}
+    best_trust = {"score": 0, "address": None}
+    best_capacity = {"score": 0, "address": None}
+    best_uptime = {"uptime": 0, "address": None}
+    best_storage = {"storage": 0, "address": None}
+    best_connectivity = {"peers": 0, "address": None}
+    
+    for node in comparison_nodes:
+        address = node.get("address")
+        scores = node.get("scores", {})
+        
+        # Overall score
+        overall = scores.get("stake_confidence", {}).get("composite_score", 0)
+        if overall > best_overall["score"]:
+            best_overall = {"score": overall, "address": address}
+        
+        # Trust score
+        trust = scores.get("trust", {}).get("score", 0)
+        if trust > best_trust["score"]:
+            best_trust = {"score": trust, "address": address}
+        
+        # Capacity score
+        capacity = scores.get("capacity", {}).get("score", 0)
+        if capacity > best_capacity["score"]:
+            best_capacity = {"score": capacity, "address": address}
+        
+        # Uptime
+        uptime = safe_get(node, "uptime", 0)
+        if uptime > best_uptime["uptime"]:
+            best_uptime = {"uptime": uptime, "address": address}
+        
+        # Storage
+        storage = safe_get(node, "storage_committed", 0)
+        if storage > best_storage["storage"]:
+            best_storage = {"storage": storage, "address": address}
+        
+        # Connectivity
+        peers = len(node.get("peer_sources", []))
+        if peers > best_connectivity["peers"]:
+            best_connectivity = {"peers": peers, "address": address}
+    
+    winners = {
+        "overall_score": {
+            "address": best_overall["address"],
+            "score": best_overall["score"],
+            "category": "Best overall performance"
+        },
+        "trust_score": {
+            "address": best_trust["address"],
+            "score": best_trust["score"],
+            "category": "Most reliable/trustworthy"
+        },
+        "capacity_score": {
+            "address": best_capacity["address"],
+            "score": best_capacity["score"],
+            "category": "Best storage capacity management"
+        },
+        "best_uptime": {
+            "address": best_uptime["address"],
+            "uptime": best_uptime["uptime"],
+            "uptime_days": round(best_uptime["uptime"] / 86400, 1),
+            "category": "Longest uptime"
+        },
+        "most_storage": {
+            "address": best_storage["address"],
+            "storage": best_storage["storage"],
+            "storage_gb": round(best_storage["storage"] / (1024**3), 2),
+            "category": "Most storage committed"
+        },
+        "best_connectivity": {
+            "address": best_connectivity["address"],
+            "peers": best_connectivity["peers"],
+            "category": "Best network connectivity"
+        }
+    }
+    
+    # Generate recommendation
+    recommendation = {
+        "recommended_node": best_overall["address"],
+        "reason": f"Highest overall score ({best_overall['score']:.1f}/100)",
+        "considerations": []
+    }
+    
+    # Add specific considerations
+    if best_overall["address"] != best_trust["address"]:
+        recommendation["considerations"].append(
+            f"{best_trust['address']} has better reliability (trust score: {best_trust['score']:.1f})"
+        )
+    
+    if best_overall["address"] != best_capacity["address"]:
+        recommendation["considerations"].append(
+            f"{best_capacity['address']} has better storage management (capacity score: {best_capacity['score']:.1f})"
+        )
+    
+    # Check for offline nodes
+    offline_nodes = [n["address"] for n in comparison_nodes if not n.get("is_online", False)]
+    if offline_nodes:
+        recommendation["considerations"].append(
+            f"⚠️ These nodes are currently offline: {', '.join(offline_nodes)}"
+        )
+    
+    return {
+        "comparison": comparison_nodes,
+        "winners": winners,
+        "recommendation": recommendation,
+        "summary": {
+            "nodes_compared": len(comparison_nodes),
+            "all_online": len(offline_nodes) == 0,
+            "avg_score": round(
+                sum(n.get("score", 0) for n in comparison_nodes) / len(comparison_nodes),
+                2
+            )
+        },
+        "timestamp": int(time.time())
+    }
+
+# ============================================================================
+# GOSSIP CONSISTENCY ENDPOINTS (Phase 5.4)
+# ============================================================================
+
+@app.get("/network/consistency", summary="Gossip consistency metrics")
+async def get_gossip_consistency(
+    min_consistency: float = Query(0.0, ge=0.0, le=1.0, description="Minimum consistency score filter"),
+    sort_by: str = Query("consistency_score", regex="^(consistency_score|gossip_disappearances|address)$"),
+    limit: int = Query(100, ge=1, le=500)
+):
+    """
+    Analyze gossip consistency across the network.
+    
+    **Phase 5 Feature** - Production-grade gossip tracking
+    
+    Identifies nodes that frequently appear/disappear (flapping).
+    
+    Consistency Score Formula:
+    ```
+    appearances / (appearances + disappearances)
+    ```
+    
+    - **Score 1.0** = Perfect (never dropped)
+    - **Score 0.8+** = Good (occasionally drops)
+    - **Score < 0.8** = Flapping (unreliable)
+    
+    Parameters:
+    - min_consistency: Only show nodes with consistency >= this (0.0-1.0)
+    - sort_by: Sort field (default: consistency_score)
+    - limit: Max results
+    
+    Returns:
+        - nodes: Array of nodes with consistency metrics
+        - summary: Network-wide consistency stats
+        - flapping_nodes: Nodes with poor consistency
+    """
+    # Build query
+    query = {}
+    if min_consistency > 0:
+        query["consistency_score"] = {"$gte": min_consistency}
+    
+    # Fetch nodes with consistency data
+    cursor = pnodes_registry.find(query).sort(
+        sort_by, 
+        -1 if sort_by == "consistency_score" else 1
+    ).limit(limit)
+    
+    nodes_with_metrics = []
+    flapping_nodes = []
+    
+    now = int(time.time())
+    
+    for doc in cursor:
+        doc = sanitize_mongo(doc)
+        
+        address = doc.get("address")
+        appearances = doc.get("gossip_appearances", 0)
+        disappearances = doc.get("gossip_disappearances", 0)
+        consistency = doc.get("consistency_score", 1.0)
+        last_drop = doc.get("last_gossip_drop")
+        last_appearance = doc.get("last_gossip_appearance")
+        
+        # Calculate time since last event
+        time_since_drop = None
+        if last_drop:
+            time_since_drop = now - last_drop
+        
+        time_since_appearance = None
+        if last_appearance:
+            time_since_appearance = now - last_appearance
+        
+        node_data = {
+            "address": address,
+            "consistency_score": round(consistency, 4),
+            "gossip_appearances": appearances,
+            "gossip_disappearances": disappearances,
+            "last_drop": last_drop,
+            "last_appearance": last_appearance,
+            "time_since_last_drop_seconds": time_since_drop,
+            "time_since_last_appearance_seconds": time_since_appearance,
+            "status": "flapping" if consistency < 0.8 else "stable",
+            "is_online": (now - doc.get("last_seen", 0)) <= 2 * CACHE_TTL
+        }
+        
+        nodes_with_metrics.append(node_data)
+        
+        # Track flapping nodes
+        if consistency < 0.8:
+            flapping_nodes.append(node_data)
+    
+    # Calculate network-wide statistics
+    all_consistency = list(pnodes_registry.find({}, {
+        "consistency_score": 1,
+        "gossip_appearances": 1,
+        "gossip_disappearances": 1
+    }))
+    
+    if all_consistency:
+        consistency_scores = [
+            doc.get("consistency_score", 1.0) 
+            for doc in all_consistency 
+            if doc.get("consistency_score") is not None
+        ]
+        
+        avg_consistency = sum(consistency_scores) / len(consistency_scores) if consistency_scores else 0
+        
+        total_appearances = sum(doc.get("gossip_appearances", 0) for doc in all_consistency)
+        total_disappearances = sum(doc.get("gossip_disappearances", 0) for doc in all_consistency)
+        
+        flapping_count = sum(1 for score in consistency_scores if score < 0.8)
+        stable_count = sum(1 for score in consistency_scores if score >= 0.8)
+    else:
+        avg_consistency = 0
+        total_appearances = 0
+        total_disappearances = 0
+        flapping_count = 0
+        stable_count = 0
+    
+    # Determine network health
+    if avg_consistency >= 0.9:
+        network_health = "excellent"
+    elif avg_consistency >= 0.8:
+        network_health = "good"
+    elif avg_consistency >= 0.7:
+        network_health = "fair"
+    else:
+        network_health = "poor"
+    
+    return {
+        "nodes": nodes_with_metrics,
+        "summary": {
+            "total_nodes": len(all_consistency),
+            "flapping_nodes": flapping_count,
+            "stable_nodes": stable_count,
+            "avg_consistency_score": round(avg_consistency, 4),
+            "total_network_appearances": total_appearances,
+            "total_network_disappearances": total_disappearances,
+            "network_health": network_health
+        },
+        "flapping_nodes": flapping_nodes,
+        "filters": {
+            "min_consistency": min_consistency,
+            "sort_by": sort_by
+        },
+        "timestamp": now
+    }
+
+
+@app.get("/node/{address:path}/consistency", summary="Get consistency for specific node")
+async def get_node_consistency(address: str):
+    """
+    Get detailed consistency metrics for a specific node.
+    
+    **Phase 5 Feature** - Production-grade per-node tracking
+    
+    Shows:
+    - Current consistency score
+    - Appearance/disappearance history
+    - Recent gossip activity
+    - Recommendations
+    
+    Parameters:
+    - address: Node address (IP:port format)
+    
+    Example: `/node/109.199.96.218:9001/consistency`
+    """
+    registry_entry = pnodes_registry.find_one({"address": address})
+    
+    if not registry_entry:
+        return JSONResponse(
+            {
+                "error": f"Node not found: {address}",
+                "suggestion": "Check /registry or /pnodes for valid addresses"
+            },
+            status_code=404
+        )
+    
+    registry_entry = sanitize_mongo(registry_entry)
+    
+    appearances = registry_entry.get("gossip_appearances", 0)
+    disappearances = registry_entry.get("gossip_disappearances", 0)
+    consistency = registry_entry.get("consistency_score", 1.0)
+    last_drop = registry_entry.get("last_gossip_drop")
+    last_appearance = registry_entry.get("last_gossip_appearance")
+    
+    now = int(time.time())
+    
+    # Calculate time-based metrics
+    time_since_drop = None
+    time_since_drop_hours = None
+    if last_drop:
+        time_since_drop = now - last_drop
+        time_since_drop_hours = time_since_drop / 3600
+    
+    time_since_appearance = None
+    time_since_appearance_hours = None
+    if last_appearance:
+        time_since_appearance = now - last_appearance
+        time_since_appearance_hours = time_since_appearance / 3600
+    
+    # Determine status
+    if consistency < 0.8:
+        status = "flapping"
+        status_emoji = "🔴"
+    elif consistency < 0.9:
+        status = "unstable"
+        status_emoji = "🟡"
+    else:
+        status = "stable"
+        status_emoji = "🟢"
+    
+    # Generate recommendations
+    recommendations = []
+    
+    if consistency < 0.8:
+        recommendations.append({
+            "severity": "high",
+            "issue": f"Node is flapping (consistency: {consistency:.1%})",
+            "recommendation": "Check network stability, firewall rules, and gossip protocol configuration",
+            "action": "Review node logs for restart patterns or network interruptions"
+        })
+    
+    if disappearances > 10:
+        recommendations.append({
+            "severity": "medium",
+            "issue": f"Node has dropped from gossip {disappearances} times",
+            "recommendation": "Investigate why the node keeps disappearing from gossip",
+            "action": "Check for: network issues, frequent restarts, or gossip port accessibility"
+        })
+    
+    if time_since_drop and time_since_drop < 3600:  # Dropped in last hour
+        recommendations.append({
+            "severity": "warning",
+            "issue": f"Node recently dropped from gossip ({time_since_drop_hours:.1f} hours ago)",
+            "recommendation": "Monitor closely for repeated drops",
+            "action": "Check if this is part of a flapping pattern"
+        })
+    
+    if not recommendations:
+        recommendations.append({
+            "severity": "info",
+            "issue": "No issues detected",
+            "recommendation": "Node has stable gossip presence",
+            "action": "Continue normal operations"
+        })
+    
+    return {
+        "address": address,
+        "consistency": {
+            "score": round(consistency, 4),
+            "status": status,
+            "status_emoji": status_emoji,
+            "appearances": appearances,
+            "disappearances": disappearances,
+            "ratio": f"{appearances}:{disappearances}",
+            "total_events": appearances + disappearances
+        },
+        "recent_activity": {
+            "last_drop": last_drop,
+            "last_drop_readable": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime(last_drop)) if last_drop else None,
+            "time_since_drop_seconds": time_since_drop,
+            "time_since_drop_hours": round(time_since_drop_hours, 2) if time_since_drop_hours else None,
+            
+            "last_appearance": last_appearance,
+            "last_appearance_readable": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime(last_appearance)) if last_appearance else None,
+            "time_since_appearance_seconds": time_since_appearance,
+            "time_since_appearance_hours": round(time_since_appearance_hours, 2) if time_since_appearance_hours else None
+        },
+        "recommendations": recommendations,
+        "node_info": {
+            "is_online": (now - registry_entry.get("last_seen", 0)) <= 2 * CACHE_TTL,
+            "version": registry_entry.get("version", "unknown"),
+            "first_seen": registry_entry.get("first_seen"),
+            "last_seen": registry_entry.get("last_seen")
+        },
+        "timestamp": now
+    }
