@@ -5,7 +5,15 @@ import asyncio
 import ipaddress
 import logging
 from joblib import Memory
-from .db import nodes_current, upsert_registry, mark_node_status, save_snapshot_history, track_gossip_changes
+from .db import (
+    nodes_current, 
+    upsert_registry, 
+    mark_node_status, 
+    save_snapshot_history, 
+    track_gossip_changes,
+    save_node_snapshot,
+    prune_old_node_history  
+)
 from .config import CACHE_TTL, IP_NODES  # FIXED: Import from config
 
 # -------------------------------
@@ -217,7 +225,6 @@ def fetch_all_nodes_background():
                         unique[key] = {**p, "peer_sources": peer_sources}
 
             merged_unique = list(unique.values())
-            
 
             # FIXED: Update registry for each unique pod using ADDRESS as primary key
             for pod in merged_unique:
@@ -294,6 +301,30 @@ def fetch_all_nodes_background():
             except Exception as e:
                 logger.error(f"❌ Gossip tracking failed: {e}")
                 # Don't fail the entire snapshot if gossip tracking fails
+
+
+             # ============================================================================
+            # SAVE PER-NODE HISTORY SNAPSHOTS
+            # ============================================================================
+            logger.info("💾 Saving per-node history snapshots...")
+            for pod in merged_unique:
+                address = pod.get("address")
+                if not address:
+                    continue
+                try:
+                    # Save individual node snapshot
+                    save_node_snapshot(address, pod)
+                except Exception as e:
+                    logger.error(f"Failed to save node history for {address}: {e}")
+
+                # Prune old node history (once per day, check if it's midnight)
+                if time.localtime(last_updated).tm_hour == 0 and time.localtime(last_updated).tm_min < 2:
+                    logger.info("🗑️  Running daily node history cleanup...")
+                    try:
+                        prune_old_node_history(days=30)
+                    except Exception as e:
+                        logger.error(f"Failed to prune node history: {e}")    
+
 
             # Save snapshot to MongoDB
             try:

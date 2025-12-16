@@ -147,7 +147,7 @@ import time
 from typing import Dict, List
 
 # Update this as new versions release
-LATEST_VERSION = "0.7.0"
+LATEST_VERSION = "0.8.0"
 
 
 def calculate_trust_score(pnode_data: Dict) -> Dict:

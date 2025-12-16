@@ -15,6 +15,7 @@ nodes_current = db["pnodes_snapshot"]        # Single snapshot document
 pnodes_registry = db["pnodes_registry"]      # Persistent registry (one doc per ADDRESS)
 pnodes_status = db["pnodes_status"]          # Lightweight status store (ADDRESS -> status)
 pnodes_snapshots = db["pnodes_snapshots"]    # Historical snapshots (time-series)
+pnodes_node_history = db["pnodes_node_history"]  # Per-node time-series data
 
 
 # Optional ping
@@ -61,6 +62,9 @@ def setup_indexes():
         # Snapshots: Index on timestamp for time-series queries
         pnodes_snapshots.create_index([("timestamp", -1)])
         logger.info("✅ Created index on pnodes_snapshots.timestamp")
+
+        # Create indexes for per-node historical collection
+        setup_node_history_indexes()
         
         logger.info("✅ All database indexes created successfully")
     except Exception as e:
@@ -629,3 +633,232 @@ def track_gossip_changes(current_pnodes: list) -> dict:
         )
     
     return summary
+
+    # ============================================================================
+# PER-NODE HISTORICAL TRACKING (Phase 5)
+# ============================================================================
+
+def setup_node_history_indexes():
+    """
+    Create indexes for per-node historical collection.
+    Call this in setup_indexes().
+    """
+    try:
+        # Compound index on address + timestamp for efficient queries
+        pnodes_node_history.create_index([("address", 1), ("timestamp", -1)])
+        logger.info("✅ Created index on pnodes_node_history.address+timestamp")
+        
+        # Index on timestamp for pruning old data
+        pnodes_node_history.create_index([("timestamp", -1)])
+        logger.info("✅ Created index on pnodes_node_history.timestamp")
+        
+    except Exception as e:
+        logger.error(f"❌ Error creating node history indexes: {e}")
+
+
+def save_node_snapshot(address: str, node_data: dict):
+    """
+    Save a snapshot of a single node's metrics.
+    Called during background fetch for each online node.
+    
+    Args:
+        address: Node address (IP:port)
+        node_data: Dict with node metrics
+    """
+    timestamp = int(time.time())
+    
+    snapshot = {
+        "address": address,
+        "timestamp": timestamp,
+        "timestamp_readable": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(timestamp)),
+        
+        # Core metrics
+        "is_online": node_data.get("is_online", True),
+        "version": node_data.get("version", "unknown"),
+        "uptime": node_data.get("uptime", 0),
+        
+        # Storage metrics
+        "storage_committed": node_data.get("storage_committed", 0),
+        "storage_used": node_data.get("storage_used", 0),
+        "storage_usage_percent": node_data.get("storage_usage_percent", 0),
+        
+        # Network metrics
+        "peer_count": len(node_data.get("peer_sources", [])),
+        "peer_sources": node_data.get("peer_sources", []),
+        
+        # Scores (if available)
+        "score": node_data.get("score", 0),
+        "trust_score": node_data.get("scores", {}).get("trust", {}).get("score", 0),
+        "capacity_score": node_data.get("scores", {}).get("capacity", {}).get("score", 0),
+        
+        # Public/Private
+        "is_public": node_data.get("is_public", False),
+    }
+    
+    try:
+        pnodes_node_history.insert_one(snapshot)
+        logger.debug(f"✅ Saved history snapshot for {address}")
+    except Exception as e:
+        logger.error(f"❌ Failed to save node history for {address}: {e}")
+
+
+def prune_old_node_history(days: int = 30):
+    """
+    Delete node history snapshots older than N days.
+    Call this periodically (e.g., daily) to prevent database bloat.
+    
+    Args:
+        days: How many days to keep (default 30)
+    """
+    threshold = int(time.time()) - (days * 86400)
+    
+    try:
+        result = pnodes_node_history.delete_many({"timestamp": {"$lt": threshold}})
+        if result.deleted_count > 0:
+            logger.info(f"🗑️  Pruned {result.deleted_count} old node history snapshot(s)")
+    except Exception as e:
+        logger.error(f"❌ Failed to prune node history: {e}")
+
+
+def get_node_history(address: str, days: int = 30):
+    """
+    Get historical data for a specific node.
+    
+    Args:
+        address: Node address (IP:port)
+        days: How many days of history to return
+        
+    Returns:
+        dict with node history data
+    """
+    start_time = int(time.time()) - (days * 86400)
+    
+    try:
+        # Query node history
+        cursor = pnodes_node_history.find({
+            "address": address,
+            "timestamp": {"$gte": start_time}
+        }).sort("timestamp", 1)
+        
+        history = []
+        for doc in cursor:
+            doc = sanitize_mongo(doc)
+            history.append(doc)
+        
+        if not history:
+            return {
+                "address": address,
+                "available": False,
+                "message": "No historical data available for this node yet",
+                "note": "History is accumulated over time. Check back after the node has been online for a while."
+            }
+        
+        # Calculate trends
+        first = history[0]
+        last = history[-1]
+        
+        uptime_change = last.get("uptime", 0) - first.get("uptime", 0)
+        storage_used_change = last.get("storage_used", 0) - first.get("storage_used", 0)
+        score_change = last.get("score", 0) - first.get("score", 0)
+        
+        # Count online vs offline periods
+        online_count = sum(1 for h in history if h.get("is_online", False))
+        offline_count = len(history) - online_count
+        availability_percent = (online_count / len(history) * 100) if history else 0
+        
+        return {
+            "address": address,
+            "available": True,
+            "data_points": len(history),
+            "time_range": {
+                "start": first.get("timestamp"),
+                "end": last.get("timestamp"),
+                "start_readable": first.get("timestamp_readable"),
+                "end_readable": last.get("timestamp_readable"),
+                "days": days
+            },
+            "history": history,
+            "trends": {
+                "uptime_change_seconds": uptime_change,
+                "uptime_change_hours": round(uptime_change / 3600, 1),
+                "storage_used_change_bytes": storage_used_change,
+                "storage_used_change_gb": round(storage_used_change / (1024**3), 2),
+                "score_change": round(score_change, 2),
+                "score_trend": "improving" if score_change > 0 else "declining" if score_change < 0 else "stable"
+            },
+            "availability": {
+                "online_snapshots": online_count,
+                "offline_snapshots": offline_count,
+                "total_snapshots": len(history),
+                "availability_percent": round(availability_percent, 2)
+            },
+            "current_status": {
+                "is_online": last.get("is_online", False),
+                "score": last.get("score", 0),
+                "uptime": last.get("uptime", 0),
+                "storage_usage_percent": last.get("storage_usage_percent", 0)
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to get node history for {address}: {e}")
+        return {
+            "address": address,
+            "available": False,
+            "error": str(e)
+        }
+
+
+def get_node_metrics_summary(address: str, hours: int = 24):
+    """
+    Get aggregated metrics for a node over a time period.
+    Useful for quick stats without fetching full history.
+    
+    Args:
+        address: Node address
+        hours: How many hours to analyze
+        
+    Returns:
+        dict with aggregated metrics
+    """
+    start_time = int(time.time()) - (hours * 3600)
+    
+    try:
+        cursor = pnodes_node_history.find({
+            "address": address,
+            "timestamp": {"$gte": start_time}
+        })
+        
+        snapshots = list(cursor)
+        
+        if not snapshots:
+            return {
+                "available": False,
+                "message": "No data available for this time period"
+            }
+        
+        # Calculate aggregates
+        online_count = sum(1 for s in snapshots if s.get("is_online", False))
+        
+        scores = [s.get("score", 0) for s in snapshots if s.get("score", 0) > 0]
+        storage_usages = [s.get("storage_usage_percent", 0) for s in snapshots]
+        peer_counts = [s.get("peer_count", 0) for s in snapshots]
+        
+        return {
+            "available": True,
+            "time_range_hours": hours,
+            "snapshots_analyzed": len(snapshots),
+            "availability_percent": round((online_count / len(snapshots) * 100), 2),
+            "avg_score": round(sum(scores) / len(scores), 2) if scores else 0,
+            "avg_storage_usage": round(sum(storage_usages) / len(storage_usages), 2) if storage_usages else 0,
+            "avg_peer_count": round(sum(peer_counts) / len(peer_counts), 2) if peer_counts else 0,
+            "min_score": min(scores) if scores else 0,
+            "max_score": max(scores) if scores else 0,
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to get metrics summary for {address}: {e}")
+        return {
+            "available": False,
+            "error": str(e)
+        }
