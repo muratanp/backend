@@ -28,7 +28,9 @@ origins = [
     "https://xandeum-insights-hub.vercel.app",
     "https://xandeum-insights-hub-muratanps-projects.vercel.app",
     "http://localhost:8080",
-    "https://friendly-parakeet-r45gprv47562x95p-8080.app.github.dev"
+    "https://friendly-parakeet-r45gprv47562x95p-8080.app.github.dev",
+    "https://backend-2veqd7ts3-muratanps-projects.vercel.app",
+    "https://backend-nine-indol-17.vercel.app"
 ]
 
 app.add_middleware(
