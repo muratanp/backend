@@ -9,12 +9,14 @@ from .db import (
     setup_indexes, get_growth_metrics, get_node_history  # ADDED
 )
 from .alerts import check_node_alerts, get_alerts_summary, filter_alerts
+from .scoring import calculate_all_scores
+from .helpers import safe_get, safe_get_list
 import time, logging
 
 
 app = FastAPI(
     title="Xandeum PNode Analytics API",
-    description="Production-ready analytics platform for Xandeum pNode network monitoring and staking",
+    description="Production-ready analytics platform for Xandeum pNode network monitoring",
     version="2.0.0"
 )
 
@@ -22,7 +24,8 @@ app = FastAPI(
 origins = [
     "http://localhost:3000",
     "http://localhost:3001",
-    "http://localhost:8000"
+    "http://localhost:8080",
+    "https://friendly-parakeet-r45gprv47562x95p-8080.app.github.dev"
 ]
 
 app.add_middleware(
@@ -37,11 +40,11 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     """Initialize database indexes and start background worker."""
-    setup_indexes()  # ADDED: Create indexes on startup
+    setup_indexes()
     fetch_all_nodes_background()
 
 
-# --- NEW: Health Check Endpoint ---
+# --- Health Check Endpoint ---
 @app.get("/health", summary="API Health Check")
 async def health_check():
     """
@@ -95,31 +98,7 @@ async def health_check():
     }
 
 
-# --- API endpoints ---
-@app.get("/all-nodes", summary="Aggregated PNode data from MongoDB")
-async def get_all_nodes(version: str = None):
-    """
-    Returns the latest snapshot of all IP nodes aggregated by the background worker.
-
-    Parameters:
-    - version: "unique" (default) returns deduplicated nodes (merged_pnodes_unique)
-               "raw" returns all nodes including duplicates (merged_pnodes_raw)
-    """
-    snapshot = nodes_current.find_one({"_id": "snapshot"})
-    if not snapshot or "data" not in snapshot:
-        return JSONResponse(jsonrpc_error("Snapshot not yet available", INTERNAL_ERROR))
-
-    data = snapshot["data"]
-
-    if version == "raw":
-        return {"version": "raw", "nodes": data.get("merged_pnodes_raw", [])}
-    elif version == "unique":
-        # default to unique
-        return {"version": "unique", "nodes": data.get("merged_pnodes_unique", [])}
-    else:
-        return data
-
-
+# --- Root Endpoint ---
 @app.get("/", summary="API Overview")
 async def root():
     """
@@ -130,12 +109,11 @@ async def root():
     """
     return {
         "api_name": "Xandeum PNode Analytics API",
-        "version": "2.0.0",
-        "description": "Production-ready analytics platform for Xandeum pNode network",
+        "version": "1.0.0",
+        "description": "Analytics platform for Xandeum pNode network",
         
         "core_endpoints": {
             "/health": "API health check",
-            "/all-nodes": "Current snapshot of all nodes",
             "/registry": "Historical node registry (paged)",
             "/registry/{address}": "Individual node details",
         },
@@ -156,12 +134,12 @@ async def root():
 
 
 @app.get("/registry", summary="List persistent pNode registry")
-async def registry_list(limit: int = Query(100, ge=1, le=1000), skip: int = 0):
+async def registry_list(limit: int = Query(100, ge=1, le=1500), skip: int = 0):
     """
     Returns the pnodes registry (paged).
     
     This is a PERSISTENT DATABASE - nodes stay here even when offline.
-    For real-time active nodes only, use /all-nodes instead.
+    For real-time active nodes only, use /pnodes instead.
     """
     try:
         items = get_registry(limit=limit, skip=skip)
@@ -237,24 +215,7 @@ async def graveyard_nodes(days: int = 90, skip: int = 0, limit: int = 100):
             status_code=500
         )
 
-# Add this to app/main.py (after existing endpoints)
-
-from .scoring import calculate_all_scores
-
-# Helper function to safely get values with defaults
-def safe_get(data: dict, key: str, default=0):
-    """Safely get value from dict, handling None."""
-    value = data.get(key, default)
-    return default if value is None else value
-
-
-def safe_get_list(data: dict, key: str):
-    """Safely get list from dict, handling None."""
-    value = data.get(key, [])
-    return [] if value is None else value
-
-
-@app.get("/pnodes", summary="Unified pNode data (RECOMMENDED)")
+@app.get("/pnodes", summary="Unified pNode data")
 async def get_pnodes_unified(
     status: str = Query("online", regex="^(all|online|offline)$"),
     limit: int = Query(100, ge=1, le=1000),
@@ -519,7 +480,6 @@ async def get_pnodes_unified(
         "timestamp": now
     }
 
-# Add these to app/main.py (after /pnodes endpoint)
 
 @app.get("/recommendations", summary="Top pNodes for staking")
 async def get_staking_recommendations(
@@ -649,7 +609,7 @@ async def get_network_topology():
             }
         })
     
-    # Add pNodes with their connections - NULL-SAFE
+    # Add pNodes with their connections 
     for pnode in data.get("merged_pnodes_unique", []):
         address = pnode.get("address")
         if not address:
@@ -771,7 +731,7 @@ async def get_network_health():
     }
 
 
-@app.get("/operators", summary="List operators and their nodes")
+@app.get("/operators", summary="List operators and their pNodes")
 async def get_operators(
     limit: int = Query(100, ge=1, le=500),
     min_nodes: int = Query(1, ge=1)
@@ -1154,7 +1114,7 @@ def generate_network_recommendations(version_compliance, storage_buckets, peer_d
             "category": "version",
             "severity": "high" if version_compliance < 50 else "medium",
             "message": f"Only {round(version_compliance, 1)}% of nodes are on the latest version",
-            "action": "Encourage operators to upgrade to v0.7.0"
+            "action": "Encourage operators to upgrade to v0.8.0"
         })
     
     # Storage recommendations
@@ -1194,19 +1154,34 @@ def generate_network_recommendations(version_compliance, storage_buckets, peer_d
     return recommendations
 
 
+# app/main.py - REPLACE the existing /node/{address}/history endpoint
+
 @app.get("/node/{address:path}/history", summary="Get node historical data")
-async def get_node_history_endpoint(address: str, days: int = Query(30, ge=1, le=90)):
+async def get_node_history_endpoint(
+    address: str, 
+    days: int = Query(30, ge=1, le=90, description="Days of history to retrieve")
+):
     """
-    Get historical data for a specific node.
+    Get historical metrics for a specific node.
     
-    **PLACEHOLDER** - Phase 5 feature
+    **FULLY IMPLEMENTED** - Phase 5 feature
     
-    Currently returns placeholder message. Per-node historical tracking
-    will be implemented in Phase 5.
+    Returns time-series data showing how the node's metrics have changed over time.
+    Perfect for:
+    - Tracking node reliability over time
+    - Identifying performance degradation
+    - Monitoring storage growth trends
+    - Analyzing availability patterns
     
     Parameters:
-    - address: Node address (IP:port)
-    - days: How many days of history (max 90)
+    - address: Node address (IP:port format, e.g., "109.199.96.218:9001")
+    - days: How many days of history (1-90, default 30)
+    
+    Returns:
+        - history: Array of snapshots with timestamps
+        - trends: Calculated trends (uptime change, storage growth, score change)
+        - availability: Online/offline statistics
+        - current_status: Latest known state
     """
     result = get_node_history(address, days)
     
@@ -1215,15 +1190,123 @@ async def get_node_history_endpoint(address: str, days: int = Query(30, ge=1, le
             {
                 "address": address,
                 "available": False,
-                "message": result.get("message"),
-                "note": result.get("note"),
-                "planned_for": "Phase 5",
-                "alternative": "Use /network/history for network-wide trends"
+                "message": result.get("message", "No data available"),
+                "note": result.get("note", "History accumulates over time. Check back later."),
+                "error": result.get("error")
             },
-            status_code=200  # Not an error, just not implemented yet
+            status_code=200  # Not an error, just no data yet
         )
     
     return result
+
+
+@app.get("/node/{address:path}/metrics-summary", summary="Get node metrics summary")
+async def get_node_metrics_endpoint(
+    address: str,
+    hours: int = Query(24, ge=1, le=168, description="Hours to analyze")
+):
+    """
+    Get aggregated metrics for a node over a time period.
+    
+    **NEW ENDPOINT** - Quick stats without full history
+    
+    Perfect for dashboard widgets showing:
+    - Average score over last 24h
+    - Availability percentage
+    - Storage usage trends
+    - Network connectivity
+    
+    Parameters:
+    - address: Node address
+    - hours: Time window to analyze (1-168 hours, default 24)
+    
+    Returns:
+        - availability_percent: How often node was online
+        - avg_score: Average performance score
+        - avg_storage_usage: Average storage usage
+        - avg_peer_count: Average peer connections
+        - min_score/max_score: Score range
+    """
+    from .db import get_node_metrics_summary
+    
+    result = get_node_metrics_summary(address, hours)
+    
+    return {
+        "address": address,
+        "metrics": result,
+        "timestamp": int(time.time())
+    }
+
+
+@app.get("/nodes/history-status", summary="Check which nodes have history data")
+async def get_nodes_history_status():
+    """
+    Get a list of nodes that have historical data available.
+    
+    **NEW ENDPOINT** - Useful for frontend to know which nodes have charts available
+    
+    Returns:
+        - total_nodes_with_history: Count of nodes with data
+        - nodes: Array of addresses with their data point counts
+        - oldest_snapshot: Timestamp of oldest data
+        - newest_snapshot: Timestamp of newest data
+    """
+    from .db import pnodes_node_history
+    
+    try:
+        # Get unique addresses with history
+        pipeline = [
+            {
+                "$group": {
+                    "_id": "$address",
+                    "count": {"$sum": 1},
+                    "first_seen": {"$min": "$timestamp"},
+                    "last_seen": {"$max": "$timestamp"}
+                }
+            },
+            {
+                "$sort": {"count": -1}
+            },
+            {
+                "$limit": 100
+            }
+        ]
+        
+        results = list(pnodes_node_history.aggregate(pipeline))
+        
+        # Get global stats
+        oldest = pnodes_node_history.find_one(sort=[("timestamp", 1)])
+        newest = pnodes_node_history.find_one(sort=[("timestamp", -1)])
+        
+        return {
+            "total_nodes_with_history": len(results),
+            "nodes": [
+                {
+                    "address": r["_id"],
+                    "snapshots": r["count"],
+                    "first_seen": r["first_seen"],
+                    "last_seen": r["last_seen"],
+                    "days_tracked": (r["last_seen"] - r["first_seen"]) / 86400
+                }
+                for r in results
+            ],
+            "global_stats": {
+                "oldest_snapshot": oldest.get("timestamp") if oldest else None,
+                "newest_snapshot": newest.get("timestamp") if newest else None,
+                "total_snapshots": pnodes_node_history.count_documents({})
+            },
+            "timestamp": int(time.time())
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get history status: {e}")
+        return JSONResponse(
+            {
+                "error": "Failed to retrieve history status",
+                "details": str(e)
+            },
+            status_code=500
+        )
 
 logger = logging.getLogger(__name__)
 
