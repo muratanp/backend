@@ -22,8 +22,9 @@ app = FastAPI(
 origins = [
     "http://localhost:3000",
     "http://localhost:3001",
-    "http://localhost:8000"
-    "https://xandeum-insights-hub.vercel.app"
+    "http://localhost:8000",
+    "https://xandeum-insights-hub.vercel.app",
+    "https://xandeum-insights-hub-muratanps-projects.vercel.app"
 ]
 
 app.add_middleware(
