@@ -1,0 +1,202 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@layer base {
+  :root {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 8%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 10%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 160 84% 39%;
+    --primary-foreground: 222 47% 6%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 33% 14%;
+    --muted-foreground: 215 20% 55%;
+
+    --accent: 199 89% 48%;
+    --accent-foreground: 222 47% 6%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 222 47% 6%;
+
+    --success: 160 84% 39%;
+    --success-foreground: 222 47% 6%;
+
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 160 84% 39%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 222 47% 5%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 160 84% 39%;
+    --sidebar-primary-foreground: 222 47% 6%;
+    --sidebar-accent: 217 33% 12%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 33% 14%;
+    --sidebar-ring: 160 84% 39%;
+
+    /* Custom Xandeum colors */
+    --xand-emerald: 160 84% 39%;
+    --xand-cyan: 199 89% 48%;
+    --xand-purple: 270 76% 60%;
+    --xand-amber: 38 92% 50%;
+    --xand-red: 0 72% 51%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(160 84% 39%), hsl(199 89% 48%));
+    --gradient-card: linear-gradient(180deg, hsl(222 47% 10%), hsl(222 47% 7%));
+    --gradient-glow: radial-gradient(ellipse at center, hsl(160 84% 39% / 0.15), transparent 70%);
+
+    /* Shadows */
+    --shadow-glow: 0 0 30px hsl(160 84% 39% / 0.2);
+    --shadow-card: 0 4px 24px hsl(222 47% 4% / 0.5);
+  }
+
+  .dark {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-xl border border-border/50 rounded-lg;
+    box-shadow: var(--shadow-card);
+  }
+
+  .glow-effect {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .gradient-text {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .score-excellent {
+    @apply bg-success/20 text-success border-success/30;
+  }
+
+  .score-good {
+    @apply bg-primary/20 text-primary border-primary/30;
+  }
+
+  .score-fair {
+    @apply bg-warning/20 text-warning border-warning/30;
+  }
+
+  .score-poor {
+    @apply bg-destructive/20 text-destructive border-destructive/30;
+  }
+
+  .status-online {
+    @apply bg-success/20 text-success;
+  }
+
+  .status-offline {
+    @apply bg-muted text-muted-foreground;
+  }
+
+  .tier-low-risk {
+    @apply bg-success/20 text-success border-success/30;
+  }
+
+  .tier-medium-risk {
+    @apply bg-warning/20 text-warning border-warning/30;
+  }
+
+  .tier-high-risk {
+    @apply bg-destructive/20 text-destructive border-destructive/30;
+  }
+
+  .tier-legendary {
+    @apply bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-400 border-amber-500/30;
+  }
+
+  .tier-elite {
+    @apply bg-purple-500/20 text-purple-400 border-purple-500/30;
+  }
+
+  .tier-reliable {
+    @apply bg-primary/20 text-primary border-primary/30;
+  }
+
+  .tier-standard {
+    @apply bg-blue-500/20 text-blue-400 border-blue-500/30;
+  }
+
+  .tier-new {
+    @apply bg-muted text-muted-foreground border-border;
+  }
+}
+
+@layer utilities {
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite alternate;
+  }
+
+  @keyframes glow {
+    from {
+      box-shadow: 0 0 20px hsl(160 84% 39% / 0.2);
+    }
+    to {
+      box-shadow: 0 0 40px hsl(160 84% 39% / 0.4);
+    }
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted)) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted));
+    border-radius: 3px;
+  }
+}
