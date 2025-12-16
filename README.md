@@ -1,13 +1,13 @@
 # Xandeum pNode Analytics Platform
 
-**Production-ready analytics API for the Xandeum storage network.**
+**Production-ready analytics API for the Xandeum PNode.**
 
 [![API Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/your-repo)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-> **The Block Explorer for Xandeum Storage Performance**  
-> Track nodes, analyze performance, make informed staking decisions.
+> **The PNode Explorer for Xandeum Storage Performance**  
+> Track pnodes, analyze performance, make informed staking decisions.
 
 ---
 
@@ -17,7 +17,7 @@ A comprehensive analytics platform that enables **stakers**, **operators**, and 
 
 ### Key Features
 
-- **🔍 Node Discovery** - Track all 100+ pNodes across the network
+- **🔍 Node Discovery** - Track all all pNodes across the network
 - **📊 Performance Scoring** - 3-score system (Trust, Capacity, Stake Confidence)
 - **📈 Historical Analytics** - 30 days of network trends and growth metrics
 - **🚨 Alert System** - Automatic detection of problematic nodes
@@ -79,8 +79,8 @@ Visit: http://localhost:8000/docs
 
 ## 📚 Documentation
 
-- **[API Reference](docs/API_REFERENCE.md)** - Complete endpoint documentation
-- **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment instructions
+- **[API Reference](API_REFERENCE.md)** - Complete endpoint documentation
+- **[Deployment Guide](DEPLOYMENT.md)** - Production deployment instructions
 - **[Architecture](ARCHITECTURE.md)** - System design and data flow
 - **[Contributing](CONTRIBUTION.md)** - How to contribute
 
@@ -200,13 +200,6 @@ See [TESTING_GUIDE.md](TESTING_GUIDE.md) for detailed test procedures.
 
 ### Quick Deploy Options
 
-**Heroku (Easiest):**
-```bash
-heroku create xandeum-analytics
-heroku config:set MONGO_URI="mongodb+srv://..."
-git push heroku main
-```
-
 **Railway:**
 ```bash
 railway init
@@ -221,7 +214,7 @@ sudo systemctl enable xandeum-api
 sudo systemctl start xandeum-api
 ```
 
-**Estimated cost:** $5-25/month depending on platform
+**Estimated cost:** Start with free trial on Railway and then $5-25/month depending on platform
 
 See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed instructions.
 
@@ -241,7 +234,7 @@ See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed instructions.
 | `/network/analytics` | ~450ms | Comprehensive |
 
 **Database:** MongoDB Atlas M0 (free tier)  
-**Server:** Heroku Basic Dyno
+**Server:** Railway Basic Dyno
 
 ---
 
@@ -271,10 +264,10 @@ for node in nodes:
 
 ```bash
 # Check for alerts
-curl "http://localhost:8000/pnodes/YOUR_ADDRESS/alerts"
+curl "http://localhost:8000/pnodes/pnode-address/alerts"
 
 # Check gossip consistency
-curl "http://localhost:8000/node/YOUR_ADDRESS/consistency"
+curl "http://localhost:8000/node/pnode-address/consistency"
 ```
 
 ### For Developers
@@ -327,6 +320,7 @@ xandeum-pnode-analytics/
 │   ├── main.py          # FastAPI app & endpoints
 │   ├── db.py            # MongoDB operations
 │   ├── fetcher.py       # Background worker
+|   ├── helpers.py       # Helpers function
 │   ├── scoring.py       # Performance scoring
 │   ├── alerts.py        # Alert system
 │   ├── config.py        # Configuration
@@ -341,8 +335,8 @@ xandeum-pnode-analytics/
 │   ├── test_phase4.py
 │   └── test_phase5.py
 ├── requirements.txt
-├── .env.example
-├── Procfile            # Heroku deployment
+├── .env.example        # Copy this in .env
+├── Procfile            # Railway deployment
 └── README.md
 ```
 
@@ -388,13 +382,11 @@ Composite: 60% trust + 40% capacity
 - **60-79** - Medium risk 🟡
 - **0-59** - High risk 🔴
 
-**Note:** Performance score (paging stats) not available via RPC in v0.7.0. Marked as "coming soon".
-
 ---
 
 ## 🗺️ Roadmap
 
-### ✅ Completed (Phases 1-5)
+### ✅ Completed (Phases 1-6)
 
 - Core API infrastructure
 - Performance scoring system
@@ -402,16 +394,16 @@ Composite: 60% trust + 40% capacity
 - Alert system
 - Gossip consistency tracking
 - Network analytics
-
-### 🚧 In Progress (Phase 6)
-
 - Comprehensive testing
 - Production deployment
 - Documentation finalization
 
+
+### 🚧 In Progress 
+- **Phase 7:** Frontend dashboard (Next.js)
+
 ### 📅 Planned (Future)
 
-- **Phase 7:** Frontend dashboard (React/Next.js)
 - **Phase 8:** Real-time WebSocket updates
 - **Phase 9:** Email/webhook notifications
 - **Phase 10:** ML-based anomaly detection
@@ -420,7 +412,7 @@ Composite: 60% trust + 40% capacity
 
 ## 📜 License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+MIT License.
 
 ---
 
@@ -434,10 +426,10 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 📞 Support
 
-- **Documentation:** [GitHub Wiki](https://github.com/your-repo/wiki)
-- **Issues:** [GitHub Issues](https://github.com/your-repo/issues)
+- **Documentation:** [GitHub Wiki](https://github.com/muratanp/backend/wiki)
+- **Issues:** [GitHub Issues](https://github.com/muratanp/backend/issues)
 - **Discord:** [Community Server](https://discord.gg/uqRSmmM5m)
-- **Twitter:** [@xandeum](https://twitter.com/xandeum)
+- **X:** [@Xandeum](https://twitter.com/Xandeum)
 
 ---
 
@@ -445,8 +437,8 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 This API is production-ready and powering analytics for the Xandeum network.
 
-**Live demo:** https://xandeum-analytics.herokuapp.com  
-**API docs:** https://xandeum-analytics.herokuapp.com/docs
+**Live demo:** https://web-production-b4440.up.railway.app/  
+**API docs:** https://web-production-b4440.up.railway.app/docs
 
 ---
 

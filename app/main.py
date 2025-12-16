@@ -24,8 +24,9 @@ app = FastAPI(
 origins = [
     "http://localhost:3000",
     "http://localhost:3001",
-    "http://localhost:8080",
-    "https://friendly-parakeet-r45gprv47562x95p-8080.app.github.dev"
+    "http://localhost:8000",
+    "https://xandeum-insights-hub.vercel.app",
+    "https://xandeum-insights-hub-muratanps-projects.vercel.app"
 ]
 
 app.add_middleware(
