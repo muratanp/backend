@@ -13,9 +13,9 @@ import type {
   ComparisonResponse,
 } from './types';
 
-// const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://web-production-b4440.up.railway.app';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://web-production-b4440.up.railway.app';
 
-const API_BASE_URL = 'https://friendly-parakeet-r45gprv47562x95p-8000.app.github.dev';
+// const API_BASE_URL = 'https://friendly-parakeet-r45gprv47562x95p-8000.app.github.dev';
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
