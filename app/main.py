@@ -116,7 +116,7 @@ async def root():
         "core_endpoints": {
             "/health": "API health check",
             "/registry": "Historical node registry (paged)",
-            "/registry/{address}": "Individual node details",
+            "/pnode/{address}": "Individual pnode details",
         },
         
         "management_endpoints": {
@@ -132,22 +132,6 @@ async def root():
         "data_refresh": f"Background worker updates every {CACHE_TTL} seconds",
         "timestamp": int(time.time())
     }
-
-
-@app.get("/registry", summary="List persistent pNode registry")
-async def registry_list(limit: int = Query(100, ge=1, le=1500), skip: int = 0):
-    """
-    Returns the pnodes registry (paged).
-    
-    This is a PERSISTENT DATABASE - nodes stay here even when offline.
-    For real-time active nodes only, use /pnodes instead.
-    """
-    try:
-        items = get_registry(limit=limit, skip=skip)
-        return items
-    except Exception as e:
-        return JSONResponse(jsonrpc_error(f"Failed to read registry: {str(e)}", INTERNAL_ERROR), status_code=500)
-
 
 @app.get("/registry/{address:path}", summary="Get single registry entry")
 async def registry_get(address: str):
@@ -225,7 +209,7 @@ async def get_pnodes_unified(
     sort_order: str = Query("desc", regex="^(asc|desc)$")
 ):
     """
-    UNIFIED pNode endpoint - single source of truth for frontend.
+    Unified pNode endpoint - single source of truth for frontend.
     
     This endpoint combines:
     - Accurate total count (all known nodes)
@@ -1154,9 +1138,6 @@ def generate_network_recommendations(version_compliance, storage_buckets, peer_d
     
     return recommendations
 
-
-# app/main.py - REPLACE the existing /node/{address}/history endpoint
-
 @app.get("/node/{address:path}/history", summary="Get node historical data")
 async def get_node_history_endpoint(
     address: str, 
@@ -1164,8 +1145,6 @@ async def get_node_history_endpoint(
 ):
     """
     Get historical metrics for a specific node.
-    
-    **FULLY IMPLEMENTED** - Phase 5 feature
     
     Returns time-series data showing how the node's metrics have changed over time.
     Perfect for:
@@ -1209,7 +1188,7 @@ async def get_node_metrics_endpoint(
     """
     Get aggregated metrics for a node over a time period.
     
-    **NEW ENDPOINT** - Quick stats without full history
+    Quick stats without full history
     
     Perfect for dashboard widgets showing:
     - Average score over last 24h
@@ -1244,7 +1223,7 @@ async def get_nodes_history_status():
     """
     Get a list of nodes that have historical data available.
     
-    **NEW ENDPOINT** - Useful for frontend to know which nodes have charts available
+    Useful for frontend to know which nodes have charts available
     
     Returns:
         - total_nodes_with_history: Count of nodes with data
