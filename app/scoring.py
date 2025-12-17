@@ -1,5 +1,4 @@
 # app/scoring.py
-
 def calculate_trust_score(pnode_data: dict) -> dict:
     """
     Trust Score (0-100)
@@ -24,7 +23,7 @@ def calculate_trust_score(pnode_data: dict) -> dict:
     
     # 3. Version compliance (20 points)
     version = pnode_data.get("version", "")
-    LATEST_VERSION = "0.7.0"
+    LATEST_VERSION = "0.8.0"
     if version == LATEST_VERSION:
         version_score = 20
     elif version and version.startswith("0.6"):
@@ -124,11 +123,6 @@ def calculate_all_scores(pnode_data: dict) -> dict:
         "trust": trust,
         "capacity": capacity,
         "stake_confidence": confidence,
-        "performance": {
-            "score": None,
-            "status": "unavailable",
-            "message": "Performance metrics (paging stats) not available via RPC"
-        }
     }
 
 """
@@ -328,12 +322,6 @@ def calculate_all_scores(pnode_data: Dict) -> Dict:
         "trust": trust,
         "capacity": capacity,
         "stake_confidence": confidence,
-        "performance": {
-            "score": None,
-            "status": "unavailable",
-            "message": "Performance metrics (paging stats) not available via RPC",
-            "note": "Paging statistics only accessible via Pod Monitor dashboard (port 80)"
-        }
     }
 
 
