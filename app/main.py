@@ -15,7 +15,7 @@ import time, logging
 
 
 app = FastAPI(
-    title="Xandeum PNode Analytics API",
+    title="Xandeum PNode Developer API",
     description="Production-ready analytics platform for Xandeum pNode network monitoring",
     version="1.1.0"
 )
