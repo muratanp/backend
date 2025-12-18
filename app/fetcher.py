@@ -27,7 +27,6 @@ if not logger.handlers:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-# REMOVED: Hardcoded IP_NODES (now imported from config)
 
 memory = Memory(location=".cache", verbose=0)
 
@@ -226,7 +225,7 @@ def fetch_all_nodes_background():
 
             merged_unique = list(unique.values())
 
-            # FIXED: Update registry for each unique pod using ADDRESS as primary key
+            # Update registry for each unique pod using ADDRESS as primary key
             for pod in merged_unique:
                 address = pod.get("address")  # PRIMARY KEY
                 if not address:
@@ -255,7 +254,7 @@ def fetch_all_nodes_background():
                 }
 
                 try:
-                    upsert_registry(address, registry_entry)  # FIXED: Use address
+                    upsert_registry(address, registry_entry)  # Use address
                     if registry_entry["is_public"]:
                         mark_node_status(address, "public", {"last_ip": registry_entry["last_ip"], "last_seen": last_seen_ts})
                     else:
@@ -289,7 +288,7 @@ def fetch_all_nodes_background():
                 "merged_pnodes_unique": merged_unique
             }
 
-            # ✨ NEW: Track gossip consistency BEFORE saving snapshot
+            # Track gossip consistency BEFORE saving snapshot
             # This compares current merged_unique to previous snapshot
             try:
                 gossip_summary = track_gossip_changes(merged_unique)
@@ -303,7 +302,7 @@ def fetch_all_nodes_background():
                 # Don't fail the entire snapshot if gossip tracking fails
 
 
-             # ============================================================================
+            # ============================================================================
             # SAVE PER-NODE HISTORY SNAPSHOTS
             # ============================================================================
             logger.info("💾 Saving per-node history snapshots...")

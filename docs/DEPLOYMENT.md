@@ -138,7 +138,7 @@ heroku ps:scale web=1
 heroku ps:type standard-1x
 ```
 
-**Cost:** $7-25/month depending on dyno type
+**Cost:** Free then $7-25/month depending on dyno type
 
 ---
 
@@ -188,7 +188,7 @@ railway variables set CACHE_TTL=60
 railway up
 ```
 
-**Cost:** $5-20/month
+**Cost:** Free then $5-20/month
 
 ---
 
@@ -215,7 +215,7 @@ services:
       - key: PYTHON_VERSION
         value: 3.11
       - key: MONGO_URI
-        sync: false  # Add manually in dashboard
+        sync: false  
       - key: MONGO_DB
         value: xandeum-monitor
       - key: CACHE_TTL
@@ -227,7 +227,7 @@ services:
 - Push to GitHub
 - Render auto-deploys on push to main branch
 
-**Cost:** $7-21/month
+**Cost:** Free then $7-21/month
 
 ---
 
@@ -272,7 +272,7 @@ services:
         value: "60"
 ```
 
-**Cost:** $5-12/month
+**Cost:** Free then $5-12/month
 
 ---
 
@@ -357,10 +357,10 @@ sudo nginx -t
 sudo systemctl restart nginx
 
 echo "✅ Deployment complete!"
-echo "API running at http://your-domain.com"
+echo "API running at https://web-production-b4440.up.railway.app"
 ```
 
-**Cost:** $5-10/month (VPS)
+**Cost:** Free $5-10/month (VPS)
 
 ---
 
@@ -491,10 +491,10 @@ git push origin production
 
 ```bash
 # Check health
-curl https://your-app.com/health
+curl https://web-production-b4440.up.railway.app/health
 
 # Check data
-curl https://your-app.com/pnodes?limit=5
+curl https://web-production-b4440.up.railway.app/pnodes?limit=5
 ```
 
 #### 5. Monitor Logs
@@ -531,10 +531,10 @@ sudo journalctl -u xandeum-api -f
 
 ```bash
 # Run comprehensive tests against production
-python test_comprehensive.py --url https://your-app.com
+python test_comprehensive.py --url https://web-production-b4440.up.railway.app/
 
 # Check response times
-time curl https://your-app.com/pnodes?limit=100
+time curl https://web-production-b4440.up.railway.app/pnodes?limit=100
 ```
 
 ### Set Up Monitoring
@@ -544,7 +544,7 @@ time curl https://your-app.com/pnodes?limit=100
 1. Go to https://uptimerobot.com
 2. Add monitor:
    - **Type:** HTTP(s)
-   - **URL:** `https://your-app.com/health`
+   - **URL:** `https://web-production-b4440.up.railway.app/`
    - **Interval:** 5 minutes
    - **Alert contacts:** Your email
 
@@ -858,7 +858,7 @@ Future: Use Redis for distributed locking.
 Quick deployment:
 ```bash
 # 1. Set up MongoDB Atlas
-# 2. Choose platform (Heroku recommended)
+# 2. Choose platform (Railway recommended)
 # 3. Configure environment variables
 # 4. Deploy
 # 5. Verify health endpoint
@@ -867,6 +867,6 @@ Quick deployment:
 
 **Estimated time:** 30-60 minutes
 
-**Total cost:** $5-25/month depending on platform
+**Total cost:** Free trial then $5-25/month depending on platform
 
 Good luck! 🚀

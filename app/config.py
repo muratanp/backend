@@ -7,7 +7,7 @@ MONGO_URI = os.getenv("MONGO_URI")
 MONGO_DB = os.getenv("MONGO_DB", "xandeum-monitor")
 CACHE_TTL = int(os.getenv("CACHE_TTL", 60))
 
-# FIXED: Parse IP_NODES from environment variable
+# Parse IP_NODES from environment variable
 IP_NODES_ENV = os.getenv("IP_NODES", "")
 if IP_NODES_ENV:
     # Split by comma, strip whitespace, filter empty strings

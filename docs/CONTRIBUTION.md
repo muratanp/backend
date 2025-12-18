@@ -6,7 +6,7 @@ Thank you for your interest in contributing to the Xandeum PNode Aggregation API
 
 ## 1. Getting Started
 
-1. **Fork the repository** and clone it locally:
+1. **Fork the repository**
 
    ```bash
    git clone https://github.com/your-username/pnode-aggregation-api.git
@@ -44,7 +44,7 @@ To add a new pNode IP:
      python verify_pnode.py <NEW_NODE_IP>
      ```
 
-     * The script tests `get-version`, `get-stats`, and `get-pods`.
+     * The script tests `get-version`, `get-stats`, `get-pods` and `get-pods-with-stats`.
      * Only nodes that **pass all tests** should be added.
 
    * **Manual `curl` method**:
@@ -68,8 +68,6 @@ To add a new pNode IP:
    ```bash
    uvicorn app.main:app --reload --port 8000
    ```
-
-   * Check `/all-nodes` to ensure the new node appears and responds correctly.
 
 ---
 
@@ -105,8 +103,8 @@ To add a new pNode IP:
 
 ## 5. Testing Contributions
 
-* Verify all new nodes respond to `get-version`, `get-stats`, and `get-pods`.
-* Run FastAPI locally and check `/all-nodes` correctly aggregates the new node.
+* Verify all new nodes respond to `get-version`, `get-stats`, `get-pods` and `get-pods-with-stats`.
+* Run FastAPI locally and check `/pnodes` correctly aggregates the new node.
 * Check MongoDB to ensure the background fetcher is storing snapshots correctly.
 
 ---
@@ -125,7 +123,6 @@ To add a new pNode IP:
 For questions or issues:
 
 * Open a GitHub issue in the repository.
-* Contact the Xandeum dev team via [support channel/contact info].
 
 ---
 

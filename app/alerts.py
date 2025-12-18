@@ -33,7 +33,7 @@ THRESHOLDS = {
     }
 }
 
-LATEST_VERSION = "0.7.0"
+LATEST_VERSION = "0.8.0"
 
 
 def check_node_alerts(node_data: Dict, historical_data: List[Dict] = None) -> List[Dict]:

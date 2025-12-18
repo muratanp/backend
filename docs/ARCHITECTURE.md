@@ -14,7 +14,7 @@ This document gives developers a full understanding of how the backend works: th
                                  ▼
                      ┌─────────────────────┐
                      │       FastAPI       │
-                     │     `/all-nodes`    │
+                     │     `/pndes`        │
                      └────────────┬────────┘
                                   │ Reads snapshot
                                   ▼
@@ -38,7 +38,7 @@ This document gives developers a full understanding of how the backend works: th
                                        ▼
                  ┌─────────────────────────────────────────────┐
                  │             Xandeum IP Nodes                │
-                 │ get-version / get-stats / get-pods          │
+                 │ get-version / get-stats / get-pods /        │
                  │ (Multiple distributed node IPs)             │
                  └─────────────────────────────────────────────┘
 
@@ -70,6 +70,7 @@ Runs every `CACHE_TTL` seconds:
    - Fetches `get-version`
    - Fetches `get-stats`
    - Fetches `get-pods`
+   - Fetches `get-pods-with-stats`
    - All via cached RPC calls
 2. Merges all pod lists
 3. Deduplicates pNodes by `address`
@@ -80,7 +81,7 @@ Runs every `CACHE_TTL` seconds:
 ### API Request
 Frontend calls:
 
-GET /all-nodes
+GET /pnodes
 
 
 FastAPI:
@@ -103,7 +104,7 @@ FastAPI:
 - Exposes `nodes_current` (snapshot storage)
 
 **fetcher.py**
-- RPC calling (`get-version`, `get-stats`, `get-pods`)
+- RPC calling (`get-version`, `get-stats`, `get-pods`, `get-pods-with-stats`)
 - Joblib caching
 - Concurrent node polling
 - Pod merging & deduplication
@@ -113,7 +114,7 @@ FastAPI:
 **main.py**
 - FastAPI app creation
 - CORS configuration
-- `/all-nodes` endpoint
+- `/pnodes` endpoint
 - Startup event that initializes background worker
 
 **utils/jsonrpc.py**

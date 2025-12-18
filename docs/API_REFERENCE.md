@@ -1,7 +1,7 @@
 # Xandeum pNode Analytics API - Complete Reference
 
-**Version:** 2.0.0  
-**Base URL:** `http://your-domain.com` or `http://localhost:8000`  
+**Version:** 1.1.0  
+**Base URL:** `https://web-production-b4440.up.railway.app` in prod or `http://localhost:8000` for dev.
 **Protocol:** REST API with JSON responses
 
 ---
@@ -687,10 +687,6 @@ Gossip consistency metrics.
 
 Detailed consistency for specific node.
 
----
-
-## Legacy Endpoints
-
 ### GET `/registry`
 
 Historical registry (use `/pnodes` instead).
@@ -699,9 +695,9 @@ Historical registry (use `/pnodes` instead).
 
 Single node from registry.
 
-### GET `/all-nodes`
+### GET `/pnodes`
 
-**Deprecated** - Use `/pnodes` instead.
+All pnode in the network
 
 ---
 
@@ -781,12 +777,11 @@ curl "http://localhost:8000/alerts/critical" | jq '.critical_nodes'
 
 ## Support
 
-- **Documentation:** [GitHub Repository](https://github.com/your-repo)
 - **Issues:** [GitHub Issues](https://github.com/your-repo/issues)
-- **Discord:** [Community Server](https://discord.gg/xandeum)
+- **Discord:** [Community Server](https://discord.gg/uqRSmmM5m)
 
 ---
 
-**API Version:** 2.0.0  
-**Last Updated:** December 2024  
+**API Version:** 1.1.0  
+**Last Updated:** December 2025 
 **License:** MIT

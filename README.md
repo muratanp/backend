@@ -79,10 +79,10 @@ Visit: http://localhost:8000/docs
 
 ## 📚 Documentation
 
-- **[API Reference](API_REFERENCE.md)** - Complete endpoint documentation
-- **[Deployment Guide](DEPLOYMENT.md)** - Production deployment instructions
-- **[Architecture](ARCHITECTURE.md)** - System design and data flow
-- **[Contributing](CONTRIBUTION.md)** - How to contribute
+- **[API Reference](/docs/API_REFERENCE.md)** - Complete endpoint documentation
+- **[Deployment Guide](/docs/DEPLOYMENT.md)** - Production deployment instructions
+- **[Architecture](/docs/ARCHITECTURE.md)** - System design and data flow
+- **[Contributing](/docs/CONTRIBUTION.md)** - How to contribute
 
 ---
 
@@ -192,7 +192,7 @@ python test_phase5.py
 
 ### Manual Testing
 
-See [TESTING_GUIDE.md](TESTING_GUIDE.md) for detailed test procedures.
+See [TESTING_GUIDE.md](/docs/TESTING_GUIDE.md) for detailed test procedures.
 
 ---
 

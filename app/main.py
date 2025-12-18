@@ -17,7 +17,7 @@ import time, logging
 app = FastAPI(
     title="Xandeum PNode Analytics API",
     description="Production-ready analytics platform for Xandeum pNode network monitoring",
-    version="2.0.0"
+    version="1.1.0"
 )
 
 # --- CORS setup ---
@@ -27,6 +27,7 @@ origins = [
     "http://localhost:8000",
     "http://localhost:8080",
     "https://*.vercel.app",
+    "https://*.github.dev",
 ]
 
 app.add_middleware(
@@ -110,7 +111,7 @@ async def root():
     """
     return {
         "api_name": "Xandeum PNode Analytics API",
-        "version": "1.0.0",
+        "version": "1.1.0",
         "description": "Analytics platform for Xandeum pNode network",
         
         "core_endpoints": {
@@ -215,9 +216,7 @@ async def get_pnodes_unified(
     - Accurate total count (all known nodes)
     - Real-time online/offline status (from snapshot)
     - Detailed registry data (persistent info, first_seen, etc.)
-    - Performance scoring
-    
-    **NULL-SAFE**: Handles missing/None values gracefully
+    - Performance scoring (trust, capacity, stake confidence)
     
     Parameters:
     - status: "online" (default), "offline", or "all"
@@ -482,8 +481,6 @@ async def get_staking_recommendations(
     
     Sorted by performance score (highest first).
     
-    **NULL-SAFE**: Handles missing/None values gracefully
-    
     Parameters:
     - limit: How many recommendations to return (max 50)
     - min_uptime_days: Minimum uptime in days (default 7)
@@ -498,7 +495,7 @@ async def get_staking_recommendations(
     min_uptime_seconds = min_uptime_days * 86400
     
     for pnode in all_nodes:
-        # Filter criteria - NULL-SAFE
+        # Filter criteria 
         if not pnode.get("is_online", False):
             continue
         if safe_get(pnode, "uptime", 0) < min_uptime_seconds:
@@ -557,8 +554,6 @@ async def get_network_topology():
     
     Edges:
     - Gossip connections (which IP nodes see which pNodes)
-    
-    **NULL-SAFE**: Handles missing/None values gracefully
     
     Perfect for D3.js, Three.js, Cytoscape, etc.
     """
@@ -663,11 +658,7 @@ async def get_network_health():
     - Breakdown of contributing factors
     - Network statistics
     - Active alerts
-    
-    **NULL-SAFE**: Handles missing/None values gracefully
-    """
-    from .scoring import calculate_network_health_score
-    
+    """   
     # Get all nodes
     response = await get_pnodes_unified(status="all", limit=10000)
     all_nodes = response.get("pnodes", [])
@@ -729,8 +720,6 @@ async def get_operators(
     - Identifying large operators
     - Analyzing network decentralization
     - Detecting centralization risks
-    
-    **NULL-SAFE**: Handles missing/None values gracefully
     
     Parameters:
     - limit: Max operators to return
@@ -814,9 +803,6 @@ async def get_network_history(
 ):
     """
     Returns historical network metrics for trend analysis.
-    
-    **ENHANCED**: Now includes detailed storage, network, and growth metrics
-    **NULL-SAFE**: Handles missing/None values gracefully
     
     Parameters:
     - hours: How many hours of history to return (max 720 = 30 days)
@@ -924,8 +910,6 @@ async def get_network_growth(
     
     Provides a quick snapshot of network changes without full history.
     
-    **NEW ENDPOINT** - Phase 4
-    
     Parameters:
     - hours: How many hours back to compare (default 24, max 720)
     """
@@ -941,8 +925,6 @@ async def get_network_growth(
 async def get_network_analytics():
     """
     Comprehensive network analytics combining multiple data sources.
-    
-    **NEW ENDPOINT** - Phase 4
     
     Provides:
     - Current state summary
@@ -1299,8 +1281,6 @@ async def get_node_alerts(
     """
     Get all active alerts for a specific node.
     
-    **NEW ENDPOINT** - Phase 5
-    
     Identifies issues such as:
     - Low uptime or frequent restarts
     - Outdated software version
@@ -1386,8 +1366,6 @@ async def get_all_alerts(
     """
     Get alerts for all nodes in the network.
     
-    **NEW ENDPOINT** - Phase 5
-    
     Useful for:
     - Identifying problematic nodes at scale
     - Monitoring network health
@@ -1465,8 +1443,6 @@ async def get_critical_alerts_only():
     """
     Quick endpoint for monitoring critical issues.
     
-    **NEW ENDPOINT** - Phase 5
-    
     Returns only nodes with critical severity alerts.
     Perfect for dashboards and alerting systems.
     """
@@ -1479,8 +1455,6 @@ async def compare_nodes(
 ):
     """
     Compare multiple nodes side-by-side.
-    
-    **NEW ENDPOINT** - Phase 5
     
     Perfect for:
     - Choosing between staking options
@@ -1673,7 +1647,7 @@ async def compare_nodes(
     }
 
 # ============================================================================
-# GOSSIP CONSISTENCY ENDPOINTS (Phase 5.4)
+# GOSSIP CONSISTENCY ENDPOINTS
 # ============================================================================
 
 @app.get("/network/consistency", summary="Gossip consistency metrics")
@@ -1684,9 +1658,7 @@ async def get_gossip_consistency(
 ):
     """
     Analyze gossip consistency across the network.
-    
-    **Phase 5 Feature** - Production-grade gossip tracking
-    
+
     Identifies nodes that frequently appear/disappear (flapping).
     
     Consistency Score Formula:
@@ -1824,8 +1796,6 @@ async def get_gossip_consistency(
 async def get_node_consistency(address: str):
     """
     Get detailed consistency metrics for a specific node.
-    
-    **Phase 5 Feature** - Production-grade per-node tracking
     
     Shows:
     - Current consistency score
