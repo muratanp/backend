@@ -9,7 +9,7 @@ Thank you for your interest in contributing to the Xandeum PNode Aggregation API
 1. **Fork the repository**
 
    ```bash
-   git clone https://github.com/your-username/pnode-aggregation-api.git
+   git clone https://github.com/lucadavid075/pnode-aggregation-api.git
    cd pnode-aggregation-api
    ```
 2. **Create a virtual environment**:

@@ -151,7 +151,7 @@ async def root():
     
     return {
         "api_name": "Xandeum PNode Analytics API",
-        "version": "2.0.0",
+        "version": "1.1.0",
         "description": "Real-time analytics platform for Xandeum decentralized storage network",
         "tagline": "Empowering stakers, operators, and developers with actionable insights",
         
@@ -259,11 +259,6 @@ async def root():
         },
         
         "registry_endpoints": {
-            "registry": {
-                "path": "/registry",
-                "description": "Historical node registry",
-                "example": "/registry?limit=20"
-            },
             "registry_entry": {
                 "path": "/registry/{address}",
                 "description": "Single node details",
@@ -354,13 +349,9 @@ async def root():
         "documentation": {
             "interactive_api_docs": "/docs",
             "alternative_docs": "/redoc",
-            "api_reference": "https://github.com/muratanp/backend/blob/main/docs/API_REFERENCE.md",
-            "architecture": "https://github.com/muratanp/backend/blob/main/docs/ARCHITECTURE.md",
-            "deployment_guide": "https://github.com/muratanp/backend/blob/main/docs/DEPLOYMENT.md"
         },
         
         "resources": {
-            "github": "https://github.com/muratanp/backend",
             "live_demo": "https://web-production-b4440.up.railway.app",
             "discord": "https://discord.gg/uqRSmmM5m",
             "twitter": "https://twitter.com/Xandeum"
@@ -382,13 +373,6 @@ async def root():
                 "python": 'requests.get("https://web-production-b4440.up.railway.app/pnodes/compare", params={"addresses": "node1:9001,node2:9001"})',
                 "javascript": 'fetch("https://web-production-b4440.up.railway.app/pnodes/compare?addresses=node1:9001,node2:9001")'
             }
-        },
-        
-        "support": {
-            "documentation": "https://github.com/muratanp/backend/tree/main/docs",
-            "issues": "https://github.com/muratanp/backend/issues",
-            "community": "https://discord.gg/uqRSmmM5m",
-            "email": "contact@xandeum.com"
         },
         
         "timestamp": int(time.time())
@@ -926,7 +910,6 @@ async def get_network_health():
     # Calculate health score
     health_data = calculate_network_health_score(all_nodes)
     
-    # Generate alerts - NULL-SAFE
     alerts = []
     online_count = len([n for n in all_nodes if n.get("is_online", False)])
     

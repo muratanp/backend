@@ -1,10 +1,12 @@
-# Production Deployment Guide
+# Xandeum PNode Analytics - Production Deployment Guide
 
-Complete guide for deploying Xandeum pNode Analytics API to production.
+**Version:** 1.1.0  
+**Last Updated:** December 2024  
+**Status:** Production-Ready
 
 ---
 
-## Table of Contents
+## 📋 Table of Contents
 
 1. [Pre-Deployment Checklist](#pre-deployment-checklist)
 2. [Environment Setup](#environment-setup)
@@ -12,154 +14,153 @@ Complete guide for deploying Xandeum pNode Analytics API to production.
 4. [MongoDB Setup](#mongodb-setup)
 5. [Configuration](#configuration)
 6. [Deployment Process](#deployment-process)
-7. [Post-Deployment](#post-deployment)
-8. [Monitoring](#monitoring)
+7. [Post-Deployment Verification](#post-deployment-verification)
+8. [Monitoring & Maintenance](#monitoring--maintenance)
 9. [Troubleshooting](#troubleshooting)
+10. [Backup & Recovery](#backup--recovery)
 
 ---
 
-## Pre-Deployment Checklist
+## ✅ Pre-Deployment Checklist
 
-### ✅ Code Readiness
+### Code Readiness
 
-- [ ] All tests pass (`python test_comprehensive.py`)
-- [ ] Performance benchmarks met
-- [ ] No TODO/FIXME comments in production code
-- [ ] Error handling comprehensive
-- [ ] Logging configured properly
+```bash
+# 1. Run comprehensive test suite
+python tests/test_comprehensive.py
 
-### ✅ Documentation
+# 2. Run API endpoint tests
+./tests/test_api.sh
 
-- [ ] README.md updated
-- [ ] API reference complete
-- [ ] Deployment guide reviewed
-- [ ] Environment variables documented
+# 3. Verify all tests pass
+python tests/test_phase4.py
+python tests/test_phase5.py
 
-### ✅ Infrastructure
+# 4. Check code quality
+python -m pylint app/ --errors-only
 
-- [ ] MongoDB Atlas cluster created
-- [ ] Database indexes created
-- [ ] Deployment platform selected
+# 5. Verify environment configuration
+python -c "from app.config import *; print('✅ Config loaded')"
+```
+
+### Documentation Checklist
+
+- [x] README.md updated with latest features
+- [x] API_REFERENCE.md complete
+- [x] ARCHITECTURE.md reflects current design
+- [x] TESTING_GUIDE.md has all test procedures
+- [x] Environment variables documented in .env.example
+
+### Infrastructure Checklist
+
+- [x] MongoDB Atlas cluster created
+- [x] Database indexes will be auto-created on first run
+- [x] Deployment platform selected
 - [ ] Domain name configured (optional)
-- [ ] SSL certificate ready (optional)
+- [x] SSL/TLS certificate ready (handled by platform)
 
 ---
 
-## Environment Setup
+## 🔧 Environment Setup
 
 ### Required Environment Variables
 
-Create a `.env` file:
+Create a `.env` file with these variables:
 
 ```bash
-# MongoDB Configuration (REQUIRED)
+# ============================================
+# REQUIRED - MongoDB Configuration
+# ============================================
 MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/?retryWrites=true&w=majority
 MONGO_DB=xandeum-monitor
 
-# Cache Configuration
+# ============================================
+# OPTIONAL - Performance Tuning
+# ============================================
+# Data refresh interval (seconds)
 CACHE_TTL=60
 
-# IP Nodes (Optional - uses defaults if not set)
+# ============================================
+# OPTIONAL - Network Configuration
+# ============================================
+# Comma-separated IP nodes (uses defaults if not set)
 IP_NODES=173.212.203.145,173.212.220.65,161.97.97.41,192.190.136.36,192.190.136.37,192.190.136.38,192.190.136.28,192.190.136.29,207.244.255.1
 
-# Port (Optional - for local testing)
+# ============================================
+# OPTIONAL - Local Development
+# ============================================
 PORT=8000
 ```
 
-### Security Considerations
-
-**Never commit `.env` to git!**
+### Security Best Practices
 
 ```bash
-# Add to .gitignore
+# 1. Never commit .env files
 echo ".env" >> .gitignore
 echo "*.env" >> .gitignore
 echo ".env.local" >> .gitignore
+
+# 2. Use strong MongoDB passwords
+# Generate with: openssl rand -base64 32
+
+# 3. Rotate credentials quarterly
+# Update MongoDB password every 90 days
+
+# 4. Limit MongoDB network access
+# Only whitelist deployment server IPs
 ```
 
 ---
 
-## Deployment Platforms
+## 🚀 Deployment Platforms
 
-### Option 1: Heroku (Easiest)
+### Option 1: Railway (Recommended) ⭐
 
-#### 1. Install Heroku CLI
+**Why Railway:**
+- ✅ Automatic HTTPS
+- ✅ One-click deployment
+- ✅ Built-in monitoring
+- ✅ Easy rollbacks
+- ✅ Free trial, then $5-20/month
 
-```bash
-# macOS
-brew tap heroku/brew && brew install heroku
-
-# Ubuntu
-curl https://cli-assets.heroku.com/install-ubuntu.sh | sh
-```
-
-#### 2. Create Heroku App
+#### Step 1: Install Railway CLI
 
 ```bash
-heroku login
-heroku create xandeum-pnode-analytics
-
-# Set buildpack
-heroku buildpacks:set heroku/python
-```
-
-#### 3. Configure Environment
-
-```bash
-# Set MongoDB URI
-heroku config:set MONGO_URI="mongodb+srv://..."
-
-# Set database name
-heroku config:set MONGO_DB="xandeum-monitor"
-
-# Set cache TTL
-heroku config:set CACHE_TTL=60
-
-# Optional: Set IP nodes
-heroku config:set IP_NODES="173.212.203.145,173.212.220.65,..."
-```
-
-#### 4. Deploy
-
-```bash
-git push heroku main
-
-# Check logs
-heroku logs --tail
-```
-
-#### 5. Scale
-
-```bash
-# Use basic dyno (free/hobby)
-heroku ps:scale web=1
-
-# Or upgrade to standard dyno
-heroku ps:type standard-1x
-```
-
-**Cost:** Free then $7-25/month depending on dyno type
-
----
-
-### Option 2: Railway (Modern Alternative)
-
-#### 1. Install Railway CLI
-
-```bash
+# Install
 npm i -g @railway/cli
+
+# Verify
+railway --version
 ```
 
-#### 2. Initialize Project
+#### Step 2: Initialize Project
 
 ```bash
+# Login to Railway
 railway login
+
+# Initialize in your project directory
+cd pnode-aggregation-api
 railway init
 ```
 
-#### 3. Configure Environment
+#### Step 3: Configure Environment
 
-Create `railway.json`:
+```bash
+# Set MongoDB URI
+railway variables set MONGO_URI="mongodb+srv://..."
+
+# Set database name
+railway variables set MONGO_DB="xandeum-monitor"
+
+# Set cache TTL
+railway variables set CACHE_TTL=60
+
+# Optional: Set custom IP nodes
+railway variables set IP_NODES="173.212.203.145,..."
+```
+
+#### Step 4: Create railway.json
 
 ```json
 {
@@ -169,450 +170,707 @@ Create `railway.json`:
   "deploy": {
     "startCommand": "uvicorn app.main:app --host 0.0.0.0 --port $PORT",
     "healthcheckPath": "/health",
-    "healthcheckTimeout": 300
+    "healthcheckTimeout": 300,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
   }
 }
 ```
 
-#### 4. Set Environment Variables
+#### Step 5: Deploy
 
 ```bash
-railway variables set MONGO_URI="mongodb+srv://..."
-railway variables set MONGO_DB="xandeum-monitor"
-railway variables set CACHE_TTL=60
-```
-
-#### 5. Deploy
-
-```bash
+# Deploy to Railway
 railway up
+
+# View logs
+railway logs
+
+# Get deployment URL
+railway domain
 ```
 
-**Cost:** Free then $5-20/month
+#### Step 6: Verify Deployment
+
+```bash
+# Get your Railway URL (e.g., your-app.railway.app)
+RAILWAY_URL=$(railway domain)
+
+# Test health endpoint
+curl "https://$RAILWAY_URL/health" | jq '.'
+
+# Test root endpoint
+curl "https://$RAILWAY_URL/" | jq '.api_name'
+
+# Run full test suite against production
+./tests/test_api.sh "$RAILWAY_URL"
+```
+
+**Cost:** Free ($5 credit) → $5-20/month depending on usage
 
 ---
 
-### Option 3: Render (Simple & Reliable)
+### Option 2: Heroku (Classic & Reliable)
 
-#### 1. Connect Repository
+**Why Heroku:**
+- ✅ Mature platform
+- ✅ Extensive documentation
+- ✅ Add-on marketplace
+- ✅ Easy scaling
 
-- Go to https://render.com
-- Click "New +" → "Web Service"
-- Connect your GitHub repository
+#### Step 1: Install Heroku CLI
 
-#### 2. Configure Service
+```bash
+# macOS
+brew tap heroku/brew && brew install heroku
+
+# Ubuntu/Debian
+curl https://cli-assets.heroku.com/install-ubuntu.sh | sh
+
+# Windows
+# Download from: https://devcenter.heroku.com/articles/heroku-cli
+```
+
+#### Step 2: Create Heroku App
+
+```bash
+# Login
+heroku login
+
+# Create app
+heroku create pnode-aggregation-api
+
+# Set buildpack
+heroku buildpacks:set heroku/python
+```
+
+#### Step 3: Configure Environment
+
+```bash
+# Set environment variables
+heroku config:set MONGO_URI="mongodb+srv://..."
+heroku config:set MONGO_DB="xandeum-monitor"
+heroku config:set CACHE_TTL=60
+
+# Optional: Custom IP nodes
+heroku config:set IP_NODES="173.212.203.145,..."
+
+# Verify configuration
+heroku config
+```
+
+#### Step 4: Deploy
+
+```bash
+# Deploy via Git
+git push heroku main
+
+# Or deploy specific branch
+git push heroku production:main
+
+# View logs
+heroku logs --tail
+```
+
+#### Step 5: Scale
+
+```bash
+# Start with free dyno
+heroku ps:scale web=1
+
+# Upgrade for better performance
+heroku ps:type hobby  # $7/month
+heroku ps:type standard-1x  # $25/month
+heroku ps:type standard-2x  # $50/month
+```
+
+#### Step 6: Verify
+
+```bash
+# Get app URL
+heroku info
+
+# Test deployment
+curl "https://your-domain.herokuapp.com/health"
+
+# Run tests
+./tests/test_api.sh "https://your-domain.herokuapp.com"
+```
+
+**Cost:** Free (550 hours/month) → $7-50/month
+
+---
+
+### Option 3: Render (Simple & Modern)
+
+**Why Render:**
+- ✅ Auto-deploy from Git
+- ✅ Pull request previews
+- ✅ Built-in SSL
+- ✅ Generous free tier
+
+#### Step 1: Connect Repository
+
+1. Go to https://render.com
+2. Click "New +" → "Web Service"
+3. Connect your GitHub repository
+4. Select branch (main)
+
+#### Step 2: Configure Service
 
 ```yaml
 # render.yaml
 services:
   - type: web
-    name: xandeum-pnode-analytics
+    name: xandeum-pnode-platform
     env: python
+    region: oregon
+    plan: free  # or starter ($7/mo)
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11
+        value: 3.11.0
       - key: MONGO_URI
-        sync: false  
+        sync: false  # Set in dashboard
       - key: MONGO_DB
         value: xandeum-monitor
       - key: CACHE_TTL
         value: 60
 ```
 
-#### 3. Deploy
+#### Step 3: Set Environment Variables
 
-- Push to GitHub
-- Render auto-deploys on push to main branch
+In Render dashboard:
+1. Go to Environment
+2. Add `MONGO_URI` (mark as secret)
+3. Add other variables as needed
 
-**Cost:** Free then $7-21/month
+#### Step 4: Deploy
 
----
+- Push to GitHub → Render auto-deploys
+- Monitor build logs in dashboard
+- Get deployment URL from dashboard
 
-### Option 4: DigitalOcean App Platform
-
-#### 1. Create App
+#### Step 5: Verify
 
 ```bash
-# Install doctl
-brew install doctl
+# Test deployment
+curl "https://your-domain.onrender.com/health"
 
-# Login
-doctl auth init
+# Run test suite
+./tests/test_api.sh "https://your-domain.onrender.com"
 ```
 
-#### 2. Configure via UI
-
-- Go to DigitalOcean App Platform
-- Create New App from GitHub
-- Select repository
-
-#### 3. App Spec
-
-```yaml
-name: xandeum-pnode-analytics
-services:
-  - name: web
-    github:
-      repo: your-username/repo-name
-      branch: main
-    build_command: pip install -r requirements.txt
-    run_command: uvicorn app.main:app --host 0.0.0.0 --port $PORT
-    health_check:
-      http_path: /health
-    envs:
-      - key: MONGO_URI
-        scope: RUN_TIME
-        type: SECRET
-      - key: MONGO_DB
-        value: xandeum-monitor
-      - key: CACHE_TTL
-        value: "60"
-```
-
-**Cost:** Free then $5-12/month
+**Cost:** Free → $7-21/month
 
 ---
 
-### Option 5: Self-Hosted (VPS)
+### Option 4: Self-Hosted VPS (Full Control)
+
+**Why Self-Hosted:**
+- ✅ Complete control
+- ✅ Predictable costs
+- ✅ No vendor lock-in
+- ✅ Custom optimizations
 
 #### Requirements
 
 - Ubuntu 22.04 LTS
-- 2GB RAM minimum
+- 2GB RAM minimum (4GB recommended)
 - 20GB disk space
 - Python 3.11+
+- Public IP address
 
-#### Setup Script
+#### Complete Setup Script
 
 ```bash
 #!/bin/bash
+set -e
+
+echo "🚀 Xandeum PNode Platform - VPS Deployment"
+echo "============================================"
 
 # Update system
+echo "📦 Updating system..."
 sudo apt update && sudo apt upgrade -y
 
 # Install Python 3.11
-sudo apt install python3.11 python3.11-venv python3-pip -y
+echo "🐍 Installing Python 3.11..."
+sudo apt install -y software-properties-common
+sudo add-apt-repository -y ppa:deadsnakes/ppa
+sudo apt update
+sudo apt install -y python3.11 python3.11-venv python3.11-dev python3-pip
 
-# Install nginx
-sudo apt install nginx -y
+# Install system dependencies
+sudo apt install -y nginx certbot python3-certbot-nginx git
+
+# Create application user
+echo "👤 Creating application user..."
+sudo useradd -m -s /bin/bash xandeum
+sudo mkdir -p /opt/xandeum-pnode-platform
+sudo chown xandeum:xandeum /opt/xandeum-pnode-platform
 
 # Clone repository
-cd /opt
-sudo git clone https://github.com/your-repo/xandeum-pnode-analytics.git
-cd xandeum-pnode-analytics
+echo "📥 Cloning repository..."
+cd /opt/xandeum-pnode-platform
+sudo -u xandeum git clone https://github.com/lucadavid075/pnode-aggregation-api.git .
 
 # Create virtual environment
-python3.11 -m venv venv
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
+echo "🔧 Setting up Python environment..."
+sudo -u xandeum python3.11 -m venv venv
+sudo -u xandeum venv/bin/pip install --upgrade pip
+sudo -u xandeum venv/bin/pip install -r requirements.txt
 
 # Create .env file
-sudo nano .env
-# Add your environment variables
+echo "⚙️ Creating environment configuration..."
+sudo -u xandeum tee .env > /dev/null <<EOF
+MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/?retryWrites=true&w=majority
+MONGO_DB=xandeum-monitor
+CACHE_TTL=60
+EOF
+
+echo "⚠️  Please edit /opt/xandeum-pnode-analytics/.env with your MongoDB credentials"
+echo "Run: sudo nano /opt/xandeum-pnode-analytics/.env"
+read -p "Press enter when ready..."
 
 # Create systemd service
+echo "🔄 Creating systemd service..."
 sudo tee /etc/systemd/system/xandeum-api.service > /dev/null <<EOF
 [Unit]
-Description=Xandeum pNode Analytics API
+Description=Xandeum PNode Analytics API
 After=network.target
 
 [Service]
 Type=simple
-User=www-data
-WorkingDirectory=/opt/xandeum-pnode-analytics
-Environment="PATH=/opt/xandeum-pnode-analytics/venv/bin"
-ExecStart=/opt/xandeum-pnode-analytics/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+User=xandeum
+WorkingDirectory=/opt/xandeum-pnode-platform
+Environment="PATH=/opt/xandeum-pnode-platform/venv/bin"
+ExecStart=/opt/xandeum-pnode-platform/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2
 Restart=always
+RestartSec=10
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/xandeum-pnode-platform
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
 # Start service
+echo "▶️ Starting service..."
 sudo systemctl daemon-reload
 sudo systemctl enable xandeum-api
 sudo systemctl start xandeum-api
 
+# Check service status
+echo "✅ Service status:"
+sudo systemctl status xandeum-api --no-pager
+
 # Configure nginx
-sudo tee /etc/nginx/sites-available/xandeum-api > /dev/null <<EOF
+echo "🌐 Configuring nginx..."
+sudo tee /etc/nginx/sites-available/xandeum-api > /dev/null <<'EOF'
 server {
     listen 80;
-    server_name your-domain.com;
+    server_name _;  # Replace with your domain
 
     location / {
         proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # WebSocket support (for future)
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        # Timeouts
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+    
+    # Health check endpoint (for monitoring)
+    location /health {
+        proxy_pass http://127.0.0.1:8000/health;
+        access_log off;
     }
 }
 EOF
 
-sudo ln -s /etc/nginx/sites-available/xandeum-api /etc/nginx/sites-enabled/
+# Enable nginx site
+sudo ln -sf /etc/nginx/sites-available/xandeum-api /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl restart nginx
 
+echo ""
 echo "✅ Deployment complete!"
-echo "API running at https://web-production-b4440.up.railway.app"
+echo ""
+echo "Next steps:"
+echo "1. Update nginx config with your domain:"
+echo "   sudo nano /etc/nginx/sites-available/xandeum-api"
+echo ""
+echo "2. Get SSL certificate (replace your-domain.com):"
+echo "   sudo certbot --nginx -d your-domain.com"
+echo ""
+echo "3. Test deployment:"
+echo "   curl http://localhost/health"
+echo ""
+echo "4. View logs:"
+echo "   sudo journalctl -u xandeum-api -f"
+echo ""
+echo "5. Restart service:"
+echo "   sudo systemctl restart xandeum-api"
 ```
 
-**Cost:** Free $5-10/month (VPS)
+#### Save and Run
+
+```bash
+# Save script
+nano deploy_vps.sh
+
+# Make executable
+chmod +x deploy_vps.sh
+
+# Run
+sudo ./deploy_vps.sh
+```
+
+#### Post-Setup SSL Certificate
+
+```bash
+# Install SSL certificate (replace with your domain)
+sudo certbot --nginx -d api.xandeum.com
+
+# Test auto-renewal
+sudo certbot renew --dry-run
+```
+
+**Cost:** $5-10/month (DigitalOcean, Linode, Vultr)
 
 ---
 
-## MongoDB Setup
+## 🗄️ MongoDB Setup
 
 ### MongoDB Atlas (Recommended)
 
-#### 1. Create Cluster
+#### Step 1: Create Cluster
 
-1. Go to https://mongodb.com/cloud/atlas
-2. Create free account
-3. Create cluster:
-   - **Tier:** M0 (Free) or M2+ (Paid)
-   - **Region:** Choose closest to your app
+1. Go to https://cloud.mongodb.com
+2. Sign up / Log in
+3. Click "Build a Cluster"
+4. Choose:
+   - **Tier:** M0 (Free) or M2+ (Paid, $9/mo)
+   - **Provider:** AWS, Google Cloud, or Azure
+   - **Region:** Choose closest to your app server
    - **Name:** xandeum-cluster
 
-#### 2. Create Database User
+#### Step 2: Configure Security
 
-```
+```bash
+# Create database user
 Username: xandeum-api
-Password: [generate strong password]
-Roles: readWrite
+Password: [Generate strong password - save in password manager]
+Roles: readWrite on xandeum-monitor database
 ```
 
-#### 3. Whitelist IPs
+#### Step 3: Network Access
 
-For cloud platforms, whitelist all IPs:
+```bash
+# For cloud deployments (Railway, Heroku, Render)
+Add IP: 0.0.0.0/0 (Allow from anywhere)
+
+# For self-hosted VPS
+Add IP: [Your VPS IP address]
 ```
-0.0.0.0/0
-```
 
-For self-hosted, whitelist your VPS IP.
-
-#### 4. Get Connection String
+#### Step 4: Get Connection String
 
 ```
 mongodb+srv://xandeum-api:<password>@cluster.mongodb.net/?retryWrites=true&w=majority
 ```
 
-Replace `<password>` with your actual password.
+Replace `<password>` with actual password!
 
-#### 5. Create Database
+#### Step 5: Create Database
 
-```javascript
-// Connect via MongoDB Compass or CLI
+```bash
+# Connect via MongoDB Compass or CLI
+mongosh "mongodb+srv://cluster.mongodb.net/" --username xandeum-api
+
+# Create database
 use xandeum-monitor
 
-// Indexes will be created automatically on first run
-// via setup_indexes() in app/db.py
+# Indexes will be auto-created on first API startup
+# via setup_indexes() function in app/db.py
+```
+
+### Verify MongoDB Connection
+
+```bash
+# Test connection from deployment server
+python3 << EOF
+from pymongo import MongoClient
+uri = "mongodb+srv://xandeum-api:PASSWORD@cluster.mongodb.net/"
+client = MongoClient(uri)
+print("✅ MongoDB connection successful!")
+print(f"Databases: {client.list_database_names()}")
+EOF
 ```
 
 ---
 
-## Configuration
+## ⚙️ Configuration
 
-### Optimal Settings
+### Optimal Settings by Network Size
+
+#### Small Network (< 100 nodes)
 
 ```bash
-# Production .env
-MONGO_URI=mongodb+srv://...         # Your Atlas connection string
-MONGO_DB=xandeum-monitor            # Database name
-CACHE_TTL=60                        # Refresh every 60 seconds
-IP_NODES=173.212.203.145,...        # Comma-separated IP nodes
+CACHE_TTL=60
+# Standard refresh, minimal load
+```
 
-# Optional: Increase if network is slow
-# CACHE_TTL=120
+#### Medium Network (100-500 nodes)
+
+```bash
+CACHE_TTL=90
+# Slightly slower refresh, better stability
+```
+
+#### Large Network (500+ nodes)
+
+```bash
+CACHE_TTL=120
+# Longer refresh, prevents overload
 ```
 
 ### Performance Tuning
 
-**For < 100 nodes:**
+#### For Better Response Times
+
 ```bash
-CACHE_TTL=60
+# Use MongoDB M2+ cluster (not free tier)
+# Add read replicas for geographic distribution
+# Upgrade server resources (2x RAM, 2x CPU)
 ```
 
-**For 100-500 nodes:**
-```bash
-CACHE_TTL=90
-```
-
-**For 500+ nodes:**
-```bash
-CACHE_TTL=120
-```
-
----
-
-## Deployment Process
-
-### Step-by-Step Deployment
-
-#### 1. Prepare Code
+#### For Higher Reliability
 
 ```bash
-# Run tests
-python test_comprehensive.py
-
-# Verify all tests pass
-# Fix any failures before deploying
-```
-
-#### 2. Create Production Branch
-
-```bash
-git checkout -b production
-git push origin production
-```
-
-#### 3. Deploy to Platform
-
-**Heroku:**
-```bash
-git push heroku production:main
-```
-
-**Railway:**
-```bash
-railway up --detach
-```
-
-**Render:**
-```bash
-# Auto-deploys on git push
-git push origin production
-```
-
-#### 4. Verify Deployment
-
-```bash
-# Check health
-curl https://web-production-b4440.up.railway.app/health
-
-# Check data
-curl https://web-production-b4440.up.railway.app/pnodes?limit=5
-```
-
-#### 5. Monitor Logs
-
-**Heroku:**
-```bash
-heroku logs --tail
-```
-
-**Railway:**
-```bash
-railway logs
-```
-
-**Self-hosted:**
-```bash
-sudo journalctl -u xandeum-api -f
+# Enable MongoDB backups
+# Use multi-region deployment
+# Add health check monitoring
 ```
 
 ---
 
-## Post-Deployment
+## 🔍 Post-Deployment Verification
 
-### Verification Checklist
-
-- [ ] Health endpoint returns `healthy`
-- [ ] All endpoints return 200 status
-- [ ] Data is updating (check snapshot_age_seconds)
-- [ ] Background worker is running
-- [ ] MongoDB connection stable
-- [ ] No errors in logs
-
-### Performance Check
+### Automated Verification Script
 
 ```bash
-# Run comprehensive tests against production
-python test_comprehensive.py --url https://web-production-b4440.up.railway.app/
+#!/bin/bash
+# verify_deployment.sh
 
-# Check response times
-time curl https://web-production-b4440.up.railway.app/pnodes?limit=100
+BASE_URL="${1:-http://localhost:8000}"
+PASSED=0
+FAILED=0
+
+echo "============================================"
+echo "Xandeum PNode Analytics - Deployment Test"
+echo "Testing: $BASE_URL"
+echo "============================================"
+echo ""
+
+# Test 1: Health Check
+echo -n "1. Health Check... "
+HEALTH=$(curl -s "$BASE_URL/health" | jq -r '.status')
+if [ "$HEALTH" = "healthy" ]; then
+    echo "✅ PASS"
+    ((PASSED++))
+else
+    echo "❌ FAIL (Status: $HEALTH)"
+    ((FAILED++))
+fi
+
+# Test 2: Root Endpoint
+echo -n "2. Root Endpoint... "
+API_NAME=$(curl -s "$BASE_URL/" | jq -r '.api_name')
+if [ "$API_NAME" = "Xandeum PNode Analytics API" ]; then
+    echo "✅ PASS"
+    ((PASSED++))
+else
+    echo "❌ FAIL"
+    ((FAILED++))
+fi
+
+# Test 3: PNodes Endpoint
+echo -n "3. PNodes Endpoint... "
+PNODES=$(curl -s "$BASE_URL/pnodes?limit=1" | jq -r '.pnodes[0].address')
+if [ -n "$PNODES" ]; then
+    echo "✅ PASS"
+    ((PASSED++))
+else
+    echo "❌ FAIL"
+    ((FAILED++))
+fi
+
+# Test 4: Recommendations
+echo -n "4. Recommendations... "
+RECS=$(curl -s "$BASE_URL/recommendations?limit=1" | jq -r '.recommendations[0].score')
+if [ -n "$RECS" ]; then
+    echo "✅ PASS"
+    ((PASSED++))
+else
+    echo "❌ FAIL"
+    ((FAILED++))
+fi
+
+# Test 5: Network Health
+echo -n "5. Network Health... "
+HEALTH_SCORE=$(curl -s "$BASE_URL/network/health" | jq -r '.health.health_score')
+if [ "$HEALTH_SCORE" != "null" ]; then
+    echo "✅ PASS"
+    ((PASSED++))
+else
+    echo "❌ FAIL"
+    ((FAILED++))
+fi
+
+echo ""
+echo "============================================"
+echo "Results: $PASSED passed, $FAILED failed"
+echo "============================================"
+
+if [ $FAILED -eq 0 ]; then
+    echo "✅ Deployment verified successfully!"
+    exit 0
+else
+    echo "❌ Deployment verification failed"
+    exit 1
+fi
 ```
+
+### Run Verification
+
+```bash
+# Make executable
+chmod +x verify_deployment.sh
+
+# Test local deployment
+./verify_deployment.sh http://localhost:8000
+
+# Test production deployment
+./verify_deployment.sh https://your-app.railway.app
+```
+
+### Manual Verification Checklist
+
+```bash
+# 1. Health endpoint returns healthy
+curl https://your-app.railway.app/health | jq '.status'
+# Expected: "healthy"
+
+# 2. Data is fresh (< 2 minutes old)
+curl https://your-app.railway.app/health | jq '.snapshot_age_seconds'
+# Expected: < 120
+
+# 3. Nodes are being tracked
+curl https://your-app.railway.app/ | jq '.system_status.nodes_tracked'
+# Expected: > 0
+
+# 4. Background worker is running
+curl https://your-app.railway.app/health | jq '.last_updated'
+# Should update every 60 seconds
+
+# 5. All endpoints respond
+./tests/test_api.sh https://your-app.railway.app
+```
+
+---
+
+## 📊 Monitoring & Maintenance
 
 ### Set Up Monitoring
 
 #### UptimeRobot (Free)
 
 1. Go to https://uptimerobot.com
-2. Add monitor:
+2. Add Monitor:
    - **Type:** HTTP(s)
-   - **URL:** `https://web-production-b4440.up.railway.app/`
-   - **Interval:** 5 minutes
-   - **Alert contacts:** Your email
+   - **URL:** `https://your-app.railway.app/health`
+   - **Monitoring Interval:** 5 minutes
+   - **Alert Contacts:** Your email/SMS
 
-#### Better Stack (Paid)
+#### Better Stack (Paid - Recommended)
 
-1. Go to https://betterstack.com
-2. Create uptime check
-3. Add incident management
-4. Configure Slack/email alerts
+```bash
+# 1. Sign up at https://betterstack.com
+# 2. Create uptime monitor
+# 3. Add heartbeat endpoint
+# 4. Configure Slack/email alerts
+```
 
----
+### Daily Maintenance Tasks
 
-## Monitoring
+```bash
+# Check health
+curl https://your-app.railway.app/health | jq '.'
 
-### Key Metrics to Track
+# View logs
+railway logs  # or heroku logs --tail
 
-1. **API Health**
-   - Endpoint: `/health`
-   - Check every 5 minutes
-   - Alert if status != "healthy"
+# Monitor resource usage
+railway status  # or heroku ps
+```
 
-2. **Snapshot Age**
-   - Endpoint: `/health`
-   - Field: `snapshot_age_seconds`
-   - Alert if > 300 seconds (5 min)
+### Weekly Maintenance Tasks
 
-3. **Response Times**
-   - All endpoints should be < 1 second
-   - Alert if p95 > 2 seconds
+```bash
+# 1. Review error logs
+railway logs | grep ERROR
 
-4. **Node Counts**
-   - Endpoint: `/pnodes?status=all`
-   - Track total_pnodes over time
-   - Alert on sudden drops (> 20%)
+# 2. Check MongoDB storage
+# Login to MongoDB Atlas → Metrics
 
-5. **Error Rate**
-   - Monitor application logs
-   - Alert on 5xx errors
+# 3. Verify backup status
+# MongoDB Atlas → Backups
 
-### Logging Best Practices
+# 4. Review performance
+curl https://your-app.railway.app/network/analytics | jq '.performance'
+```
 
-```python
-# app/main.py - Add logging middleware
+### Monthly Maintenance Tasks
 
-import logging
-import time
-from fastapi import Request
+```bash
+# 1. Update dependencies
+pip list --outdated
+pip install --upgrade [package]
 
-logger = logging.getLogger("api")
+# 2. Review and prune old data
+# Automatic (30-day retention)
 
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    start = time.time()
-    response = await call_next(request)
-    duration = time.time() - start
-    
-    logger.info(
-        f"{request.method} {request.url.path} "
-        f"- {response.status_code} - {duration:.3f}s"
-    )
-    return response
+# 3. Rotate MongoDB credentials
+# Update password in MongoDB Atlas
+# Update MONGO_URI environment variable
+
+# 4. Review cost/usage
+# Check platform billing dashboard
 ```
 
 ---
 
-## Troubleshooting
+## 🐛 Troubleshooting
 
-### Issue: Health check fails
+### Issue: Health Check Returns "unhealthy"
 
 **Symptoms:**
 ```json
@@ -620,25 +878,28 @@ async def log_requests(request: Request, call_next):
 ```
 
 **Solutions:**
-1. Check background worker is running
-2. Verify MongoDB connection
-3. Check IP nodes are accessible
-4. Restart the application
 
 ```bash
-# Heroku
-heroku restart
+# 1. Check background worker logs
+railway logs | grep "Background worker"
 
-# Railway
-railway restart
+# 2. Verify MongoDB connection
+railway logs | grep "MongoDB"
 
-# Self-hosted
-sudo systemctl restart xandeum-api
+# 3. Check IP nodes are accessible
+for ip in 173.212.203.145 173.212.220.65; do
+  curl -X POST http://$ip:6000/rpc \
+    -H "Content-Type: application/json" \
+    -d '{"jsonrpc":"2.0","method":"get-version","id":1}'
+done
+
+# 4. Restart application
+railway restart  # or heroku restart
 ```
 
 ---
 
-### Issue: Slow response times
+### Issue: Slow Response Times
 
 **Symptoms:**
 - Endpoints taking > 2 seconds
@@ -646,31 +907,23 @@ sudo systemctl restart xandeum-api
 
 **Solutions:**
 
-1. **Check MongoDB indexes:**
 ```bash
-# In MongoDB shell
-db.pnodes_registry.getIndexes()
+# 1. Check MongoDB indexes
+mongosh "mongodb+srv://..." --eval "db.pnodes_registry.getIndexes()"
 
-# Should show indexes on:
-# - address (unique)
-# - pubkey
-# - last_seen
+# 2. Upgrade MongoDB tier
+# M0 (free) → M2 ($9/mo) for better performance
+
+# 3. Increase CACHE_TTL
+railway variables set CACHE_TTL=90
+
+# 4. Upgrade server resources
+railway settings  # Upgrade plan
 ```
-
-2. **Increase CACHE_TTL:**
-```bash
-# .env
-CACHE_TTL=90
-```
-
-3. **Upgrade server resources:**
-- More RAM
-- Better CPU
-- Closer to MongoDB region
 
 ---
 
-### Issue: MongoDB connection errors
+### Issue: MongoDB Connection Errors
 
 **Symptoms:**
 ```
@@ -679,22 +932,25 @@ pymongo.errors.ServerSelectionTimeoutError
 
 **Solutions:**
 
-1. **Check connection string:**
 ```bash
-# Verify format
-mongodb+srv://username:password@cluster.mongodb.net/
+# 1. Verify connection string format
+echo $MONGO_URI
+# Should be: mongodb+srv://user:pass@cluster.mongodb.net/
+
+# 2. Check IP whitelist
+# MongoDB Atlas → Network Access
+# Add 0.0.0.0/0 for cloud deployments
+
+# 3. Verify credentials
+# Try connecting with mongosh
+
+# 4. Check MongoDB cluster status
+# MongoDB Atlas → Clusters (should show "Active")
 ```
-
-2. **Verify IP whitelist:**
-- Add `0.0.0.0/0` in Atlas Network Access
-
-3. **Check credentials:**
-- Username and password correct
-- User has readWrite permissions
 
 ---
 
-### Issue: Background worker not updating
+### Issue: Background Worker Not Updating
 
 **Symptoms:**
 - `snapshot_age_seconds` keeps growing
@@ -702,171 +958,203 @@ mongodb+srv://username:password@cluster.mongodb.net/
 
 **Solutions:**
 
-1. **Check logs for errors:**
 ```bash
-# Look for RPC errors
-heroku logs --tail | grep "RPC"
-```
+# 1. Check worker logs
+railway logs | grep "Aggregation cycle"
 
-2. **Verify IP nodes are accessible:**
-```bash
-# Test manually
-curl -X POST http://173.212.203.145:6000/rpc \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"get-version","id":1}'
-```
+# 2. Verify IP nodes respond
+python verify_pnode.py 173.212.203.145
 
-3. **Restart application:**
-```bash
-heroku restart
+# 3. Check for RPC errors
+railway logs | grep "RPC"
+
+# 4. Restart application
+railway restart
+
+# 5. If persistent, check CACHE_TTL
+railway variables get CACHE_TTL
 ```
 
 ---
 
-### Issue: High memory usage
+## 💾 Backup & Recovery
 
-**Symptoms:**
-- App crashes with R14 (Heroku)
-- Out of memory errors
+### Automated MongoDB Backups
 
-**Solutions:**
+#### MongoDB Atlas (M2+ clusters)
 
-1. **Limit pagination:**
-```python
-# app/main.py
-# Change max limit from 1000 to 500
-limit: int = Query(100, ge=1, le=500)
-```
-
-2. **Clear Joblib cache periodically:**
-```python
-# app/fetcher.py
-# Add cache cleanup
-memory.clear(warn=False)
-```
-
-3. **Upgrade server tier:**
 ```bash
-# Heroku
-heroku ps:type standard-1x
+# Backups are automatic on paid tiers
+# Check: MongoDB Atlas → Clusters → Backup
+# Retention: 7 days (configurable)
 ```
 
----
+#### Manual Backup
 
-## Backup & Recovery
-
-### Database Backups
-
-**MongoDB Atlas:**
-- Auto-backups enabled by default (M10+)
-- Manual backup: Cluster → Backup → Create Snapshot
-
-**Manual Backup:**
 ```bash
+# Backup entire database
 mongodump --uri="mongodb+srv://..." --out=backup-$(date +%Y%m%d)
+
+# Backup specific collection
+mongodump --uri="mongodb+srv://..." \
+  --db=xandeum-monitor \
+  --collection=pnodes_registry \
+  --out=backup-registry
+
+# Compress backup
+tar -czf backup-$(date +%Y%m%d).tar.gz backup-$(date +%Y%m%d)/
 ```
 
-**Restore:**
+### Restore from Backup
+
 ```bash
-mongorestore --uri="mongodb+srv://..." backup-20241214/
+# Restore entire database
+mongorestore --uri="mongodb+srv://..." backup-20241219/
+
+# Restore specific collection
+mongorestore --uri="mongodb+srv://..." \
+  --db=xandeum-monitor \
+  --collection=pnodes_registry \
+  backup-registry/xandeum-monitor/pnodes_registry.bson
 ```
 
-### Code Backups
+### Disaster Recovery Plan
 
-- Keep code in Git (GitHub/GitLab)
-- Tag releases: `git tag v2.0.0`
-- Maintain production branch
+#### Scenario 1: Application Crash
+
+```bash
+# 1. Check logs
+railway logs
+
+# 2. Restart application
+railway restart
+
+# 3. Verify recovery
+curl https://your-app.railway.app/health
+
+# 4. Monitor for stability
+watch -n 10 'curl -s https://your-app.railway.app/health | jq ".status"'
+```
+
+#### Scenario 2: Database Corruption
+
+```bash
+# 1. Stop application
+railway service stop
+
+# 2. Restore from backup
+mongorestore --uri="mongodb+srv://..." backup-latest/
+
+# 3. Verify data integrity
+mongosh "mongodb+srv://..." --eval "db.pnodes_registry.count()"
+
+# 4. Restart application
+railway service start
+
+# 5. Force fresh snapshot
+# Wait 60 seconds for background worker
+```
+
+#### Scenario 3: Complete Data Loss
+
+```bash
+# 1. Create new MongoDB cluster
+# 2. Update MONGO_URI environment variable
+# 3. Deploy application
+# 4. Background worker will rebuild from scratch
+# Note: Historical data (30 days) will be lost
+```
 
 ---
 
-## Scaling
+## 📈 Scaling Guide
 
-### Vertical Scaling (More Resources)
+### When to Scale
 
-**When to scale:**
-- Response times > 2 seconds
-- CPU usage consistently > 70%
-- Memory usage > 80%
+Monitor these metrics:
 
-**How to scale:**
+| Metric | Warning | Critical | Action |
+|--------|---------|----------|--------|
+| Response Time (p95) | > 500ms | > 1000ms | Upgrade server |
+| CPU Usage | > 70% | > 85% | Add resources |
+| Memory Usage | > 80% | > 90% | Upgrade RAM |
+| Error Rate | > 1% | > 5% | Investigate |
+| Snapshot Age | > 120s | > 300s | Check worker |
+
+### Vertical Scaling (Recommended First)
+
 ```bash
-# Heroku
-heroku ps:type standard-2x
-
 # Railway
-# Upgrade plan in dashboard
+railway settings  # Upgrade to Pro plan ($20/mo)
 
-# Self-hosted
-# Upgrade VPS tier
+# Heroku
+heroku ps:type standard-2x  # $50/mo, 2x resources
+
+# MongoDB
+# M0 (free) → M2 ($9/mo) → M5 ($25/mo)
 ```
 
-### Horizontal Scaling (Multiple Instances)
+### Horizontal Scaling (Future)
 
-**Not currently supported** - background worker would conflict.
+**Requires:**
+- Redis for distributed locking
+- Load balancer
+- Multiple API instances
 
-Future: Use Redis for distributed locking.
-
----
-
-## Security Checklist
-
-- [ ] MongoDB credentials in environment variables (not code)
-- [ ] `.env` file in `.gitignore`
-- [ ] MongoDB IP whitelist configured
-- [ ] HTTPS enabled (via platform or nginx)
-- [ ] Regular security updates (`pip install --upgrade`)
-- [ ] Monitor for vulnerabilities (`pip audit`)
+See [ARCHITECTURE.md](ARCHITECTURE.md) for horizontal scaling design.
 
 ---
 
-## Maintenance
+## ✅ Deployment Checklist
 
-### Regular Tasks
+### Pre-Deploy
 
-**Daily:**
-- Check health endpoint
-- Review error logs
-- Monitor response times
+- [ ] All tests pass
+- [ ] MongoDB cluster ready
+- [ ] Environment variables configured
+- [ ] Documentation updated
 
-**Weekly:**
-- Review MongoDB storage usage
-- Check for slow queries
-- Update dependencies
+### Deploy
 
-**Monthly:**
-- Review analytics trends
-- Update IP nodes list (if needed)
-- Plan capacity upgrades
+- [ ] Application deployed
+- [ ] Health endpoint responds
+- [ ] Background worker running
+- [ ] Data is fresh (< 2 min)
+
+### Post-Deploy
+
+- [ ] All endpoints tested
+- [ ] Monitoring configured
+- [ ] Backup strategy in place
+- [ ] Team notified
 
 ---
 
-## Support
+## 📞 Support
 
 ### Getting Help
 
-1. **Documentation:** This guide + API reference
-2. **GitHub Issues:** Report bugs/features
-3. **Community:** Discord/Telegram
-4. **Professional:** Contact dev team
+1. **Check logs first**
+   ```bash
+   railway logs  # or heroku logs --tail
+   ```
+
+2. **Review troubleshooting section**
+   - Common issues documented above
+
+3. **Community support**
+   - Discord: https://discord.gg/uqRSmmM5m
 
 ---
 
-## Summary
+<div align="center">
 
-✅ **You're ready to deploy!**
+**Xandeum PNode Analytics - Deployment Guide v1.1.0**
 
-Quick deployment:
-```bash
-# 1. Set up MongoDB Atlas
-# 2. Choose platform (Railway recommended)
-# 3. Configure environment variables
-# 4. Deploy
-# 5. Verify health endpoint
-# 6. Set up monitoring
-```
+[Back to README](../README.md) • [Architecture](ARCHITECTURE.md) • [API Reference](API_REFERENCE.md)
 
-**Estimated time:** 30-60 minutes
+*Your deployment should take 15-30 minutes*
 
-**Total cost:** Free trial then $5-25/month depending on platform
+🚀 **Ready to deploy!**
 
-Good luck! 🚀
+</div>

@@ -2,7 +2,7 @@
 
 **Production-ready analytics API for the Xandeum PNode.**
 
-[![API Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/your-repo)
+[![API Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/lucadavid075/pnode-aggregation-api)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -38,8 +38,8 @@ A comprehensive analytics platform that enables **stakers**, **operators**, and 
 
 ```bash
 # Clone repository
-git clone https://github.com/your-repo/xandeum-pnode-analytics.git
-cd xandeum-pnode-analytics
+git clone https://github.com/lucadavid075/pnode-aggregation-api.git
+cd pnode-aggregation-api
 
 # Create virtual environment
 python -m venv venv
@@ -287,7 +287,7 @@ console.log(`Nodes: ${health.summary.online_pnodes}/${health.summary.total_pnode
 
 ## 🤝 Contributing
 
-We welcome contributions! See [CONTRIBUTION.md](CONTRIBUTION.md) for guidelines.
+We welcome contributions! See [CONTRIBUTION.md](/docs/CONTRIBUTION.md) for guidelines.
 
 ### Adding IP Nodes
 
@@ -314,7 +314,7 @@ black app/
 ## 📦 Project Structure
 
 ```
-xandeum-pnode-analytics/
+pnode-aggregation-api/
 ├── app/
 │   ├── __init__.py
 │   ├── main.py          # FastAPI app & endpoints
@@ -397,10 +397,7 @@ Composite: 60% trust + 40% capacity
 - Comprehensive testing
 - Production deployment
 - Documentation finalization
-
-
-### 🚧 In Progress 
-- **Phase 7:** Frontend dashboard (Next.js)
+- Frontend dashboard (Next.js/Vite)
 
 ### 📅 Planned (Future)
 
@@ -426,8 +423,8 @@ MIT License.
 
 ## 📞 Support
 
-- **Documentation:** [GitHub Wiki](https://github.com/muratanp/backend/wiki)
-- **Issues:** [GitHub Issues](https://github.com/muratanp/backend/issues)
+- **Documentation:** [GitHub Wiki](https://github.com/lucadavid075/pnode-aggregation-api/wiki)
+- **Issues:** [GitHub Issues](https://github.com/lucadavid075/pnode-aggregation-api/issues)
 - **Discord:** [Community Server](https://discord.gg/uqRSmmM5m)
 - **X:** [@Xandeum](https://twitter.com/Xandeum)
 

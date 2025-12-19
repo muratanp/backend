@@ -269,53 +269,6 @@ curl "https://web-production-b4440.up.railway.app/recommendations?limit=5&min_up
 
 ---
 
-### GET `/registry`
-
-Browse historical node registry (all known nodes).
-
-#### Parameters
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `limit` | integer | `100` | Results per page (1-500) |
-| `skip` | integer | `0` | Pagination offset |
-
-#### Request Example
-
-```bash
-curl "https://web-production-b4440.up.railway.app/registry?limit=20&skip=0"
-```
-
-#### Response Structure
-
-```json
-{
-  "count": 20,
-  "items": [
-    {
-      "address": "109.199.96.218:9001",
-      "pubkey": "0x1234...abcd",
-      "version": "0.8.0",
-      "first_seen": 1700000000,
-      "last_seen": 1703001234,
-      "is_online": true,
-      "uptime": 2592000,
-      "storage_committed": 107374182400,
-      "storage_used": 26041344,
-      "source_ips": ["192.168.1.1", "10.0.0.5"]
-    }
-  ]
-}
-```
-
-#### Use Cases
-
-✅ **Browse all known nodes**  
-✅ **Check node history**  
-✅ **See when nodes first appeared**
-
----
-
 ### GET `/registry/{address}`
 
 Get detailed information for a specific node.
@@ -1650,7 +1603,7 @@ https://*.github.dev
 
 ## 📝 Changelog
 
-### v2.0.0 (December 2024)
+### v1.1.0 (December 2024)
 
 **Added:**
 - ✨ Per-node historical tracking
@@ -1675,8 +1628,8 @@ https://*.github.dev
 
 ### Documentation
 
-- **GitHub**: [github.com/muratanp/backend](https://github.com/muratanp/backend)
-- **Issues**: [Report bugs/features](https://github.com/muratanp/backend/issues)
+- **GitHub**: [github.com/lucadavid075/pnode-aggregation-api](https://github.com/lucadavid075/pnode-aggregation-api)
+- **Issues**: [Report bugs/features](https://github.com/lucadavid075/pnode-aggregation-api/issues)
 
 ### Community
 
@@ -1733,9 +1686,9 @@ GET /network/growth?hours=24
 
 <div align="center">
 
-**Xandeum PNode Analytics API v2.0.0**
+**Xandeum PNode Analytics API v1.1.0**
 
-[Live Demo](https://web-production-b4440.up.railway.app) • [Interactive Docs](https://web-production-b4440.up.railway.app/docs) • [GitHub](https://github.com/muratanp/backend)
+[Live Demo](https://web-production-b4440.up.railway.app) • [Interactive Docs](https://web-production-b4440.up.railway.app/docs) • [GitHub](https://github.com/lucadavid075/pnode-aggregation-api)
 
 *Built with ❤️ for the Xandeum Community*
 

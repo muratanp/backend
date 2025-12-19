@@ -1353,11 +1353,11 @@ producer.send('node-updates', {
 - [x] **Deployment**: Automated via Railway/Heroku
 - [x] **Backup**: MongoDB Atlas auto-backup
 - [x] **Recovery**: Database restore procedures
+- [x] **Caching Layer**: Joblib for frequently accessed data
 
 ### Future Enhancements
 
 - [ ] **Horizontal Scaling**: Redis-based locking
-- [ ] **Caching Layer**: Redis for frequently accessed data
 - [ ] **Rate Limiting**: Per-IP request limits
 - [ ] **Authentication**: API keys for advanced features
 - [ ] **WebSocket**: Real-time updates
@@ -1418,7 +1418,7 @@ For questions about the architecture:
 
 <div align="center">
 
-**Xandeum PNode Analytics - System Architecture v2.0.0**
+**Xandeum PNode Analytics - System Architecture v1.1.0**
 
 [Back to README](../README.md) • [API Reference](API_REFERENCE.md) • [Deployment Guide](DEPLOYMENT.md)
 
