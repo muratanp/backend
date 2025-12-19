@@ -1,8 +1,8 @@
-# Xandeum pNode Analytics Platform
+# Xandeum pNode Platform API
 
 **Production-ready analytics API for the Xandeum PNode.**
 
-[![API Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/lucadavid075/pnode-aggregation-api)
+[![API Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/lucadavid075/pnode-aggregation-api)
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
